@@ -1,0 +1,2191 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ciclos">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2f4fb8">
+<style>:root{color-scheme:light}body{margin:0;font-family:system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Ciclos de Estudo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Azeret+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: coluna única, painel do cronômetro no topo, blocos empilhados (hoje, semana, mês, saldo). */
+:root{
+  --bg:#eceef3; --surface:#ffffff; --surface-2:#f5f7fa; --fg:#161922; --muted:#616b7c;
+  --line:#d4dae3; --line-forte:#b9c2ce;
+  --accent:#2f4fb8; --accent-fraco:#e3e9f9;
+  --foco:#a9600b; --foco-fraco:#f7ecda;
+  --pausa:#0b7b7c; --pausa-fraco:#dcf0ef;
+  --ok:#2a7549; --ok-fraco:#ddefe4;
+  --extra:#75459f; --extra-fraco:#eee4f7;
+  --neg:#b4442f; --neg-fraco:#f7e3de;
+  --display:"Azeret Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --corpo:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10131a; --surface:#181c25; --surface-2:#1f2531; --fg:#e7ecf4; --muted:#98a3b4;
+  --line:#2b3240; --line-forte:#3b4455;
+  --accent:#8ba4f2; --accent-fraco:#1e2742;
+  --foco:#e2a344; --foco-fraco:#33281680;
+  --pausa:#41c3bd; --pausa-fraco:#13302f80;
+  --ok:#59c68a; --ok-fraco:#15301f80;
+  --extra:#b58ae9; --extra-fraco:#271838;
+  --neg:#f0836a; --neg-fraco:#3a1d16;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#10131a; --surface:#181c25; --surface-2:#1f2531; --fg:#e7ecf4; --muted:#98a3b4;
+  --line:#2b3240; --line-forte:#3b4455;
+  --accent:#8ba4f2; --accent-fraco:#1e2742;
+  --foco:#e2a344; --foco-fraco:#33281680;
+  --pausa:#41c3bd; --pausa-fraco:#13302f80;
+  --ok:#59c68a; --ok-fraco:#15301f80;
+  --extra:#b58ae9; --extra-fraco:#271838;
+  --neg:#f0836a; --neg-fraco:#3a1d16;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--corpo);margin:0;line-height:1.5;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 56px;
+  display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:600;letter-spacing:-0.01em}
+h1{font-size:1.32rem}
+h2{font-size:1rem}
+p{margin:0}
+button{font-family:inherit;font-size:.86rem;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.eyebrow{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600}
+.num{font-family:var(--display);font-variant-numeric:tabular-nums}
+
+/* cabeçalho */
+.topo{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.topo .data{font-size:.82rem;color:var(--muted);margin-top:2px}
+.sync{font-size:.68rem;border:1px solid var(--line);border-radius:999px;padding:4px 10px;
+  color:var(--muted);background:var(--surface);display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.ponto{width:7px;height:7px;border-radius:50%;background:var(--line-forte);flex:none}
+.ponto.on{background:var(--ok)}
+
+/* cartões */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.card.timer{padding:22px 18px 18px}
+.cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+
+/* seletor de tipo */
+.tipos{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:18px}
+.tipo{border:1px solid var(--line);background:var(--surface-2);color:var(--muted);
+  border-radius:999px;padding:7px 14px;font-weight:600;transition:.12s}
+.tipo[aria-pressed="true"]{background:var(--accent-fraco);border-color:var(--accent);color:var(--accent)}
+.tipo:disabled{opacity:.45;cursor:not-allowed}
+
+/* anel */
+.anel-area{display:flex;flex-direction:column;align-items:center;gap:2px}
+.anel{width:min(272px,78vw);max-width:100%;aspect-ratio:1;position:relative}
+.anel svg{width:100%;height:100%;display:block}
+.centro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;pointer-events:none}
+.relogio{font-family:var(--display);font-weight:700;font-size:clamp(2.5rem,12vw,3.3rem);line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
+.sub{font-size:.78rem;color:var(--muted);text-align:center;padding:0 12px}
+.sub strong{color:var(--extra);font-weight:600}
+.estado{font-size:.68rem;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:var(--muted)}
+.estado.rodando{color:var(--foco)}
+.estado.pausado{color:var(--muted)}
+.estado.descanso{color:var(--pausa)}
+.estado.excedente{color:var(--extra)}
+
+/* controles */
+.ctrl{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+.btn{border:1px solid var(--line-forte);background:var(--surface-2);color:var(--fg);
+  border-radius:9px;padding:10px 18px;font-weight:600;transition:.12s}
+.btn:hover{border-color:var(--fg)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.fim{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.sutil{background:transparent;border-color:transparent;color:var(--muted);padding:10px 10px}
+.btn.sutil:hover{color:var(--fg);border-color:var(--line)}
+.btn.perigo{color:#fff;background:#a8402f;border-color:#a8402f}
+.linha-extra{display:flex;justify-content:center;margin-top:12px}
+label.chk{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;color:var(--muted);cursor:pointer}
+label.chk input{accent-color:var(--extra);width:16px;height:16px}
+
+/* avisos */
+.avisos{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px;
+  padding-top:14px;border-top:1px solid var(--line)}
+.aviso-txt{font-size:.74rem;color:var(--muted);text-align:center;flex-basis:100%;margin-top:4px}
+
+/* painel do dia */
+.metas{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin-bottom:16px}
+.meta-box{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+.meta-box .v{font-family:var(--display);font-size:1.45rem;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.meta-box .k{font-size:.7rem;color:var(--muted);margin-top:2px}
+.meta-box.destaque{border-color:var(--ok);background:var(--ok-fraco)}
+.meta-box.destaque .v{color:var(--ok)}
+.meta-box.saldo .v{color:var(--extra)}
+.meta-box.neg{border-color:var(--neg)}
+.meta-box.neg .v{color:var(--neg)}
+
+.plano{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px}
+.slot{min-width:0;border:1px dashed var(--line-forte);border-radius:9px;padding:8px 11px;
+  font-size:.74rem;color:var(--muted);background:var(--surface-2);display:flex;align-items:center;gap:7px}
+.slot.feito{border-style:solid;border-color:var(--ok);background:var(--ok-fraco);color:var(--ok);font-weight:600}
+.slot.proximo{border-style:solid;border-color:var(--accent);background:var(--accent-fraco);color:var(--accent);font-weight:600}
+.slot .mk{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.5;flex:none}
+.slot.feito .mk,.slot.proximo .mk{opacity:1}
+
+.duplo{display:grid;grid-template-columns:minmax(0,0.82fr) minmax(0,1.18fr);gap:14px;margin-top:14px}
+.coluna{min-width:0;display:flex;flex-direction:column;gap:7px}
+.coluna > .eyebrow{margin-bottom:1px}
+.ciclo-l{display:flex;align-items:center;gap:9px;font-size:.84rem;padding:9px 11px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
+.ciclo-l.parcial{border-style:dashed}
+.ciclo-l .ord{font-family:var(--display);font-size:.72rem;color:var(--muted);width:14px;flex:none}
+.ciclo-l .bar{flex:1;min-width:24px;height:7px;border-radius:4px;background:var(--line);overflow:hidden}
+.ciclo-l .bar i{display:block;height:100%;background:var(--ok);border-radius:4px}
+.ciclo-l.parcial .bar i{background:var(--foco)}
+.ciclo-l .t{font-family:var(--display);font-variant-numeric:tabular-nums;font-weight:600;
+  font-size:.82rem;white-space:nowrap}
+.ciclo-l.parcial .t{color:var(--foco);font-weight:500}
+.registro{display:flex;flex-direction:column;gap:7px}
+.linha .hora{font-family:var(--display);font-size:.72rem;color:var(--muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:700px){ .duplo{grid-template-columns:1fr} }
+.linha{display:flex;align-items:center;gap:10px;font-size:.84rem;padding:9px 12px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:9px}
+.linha .ord{font-family:var(--display);font-size:.72rem;color:var(--muted);width:20px;flex:none}
+.linha .nm{flex:1;min-width:0;font-weight:600}
+.linha .tp{font-size:.7rem;color:var(--muted);font-weight:400}
+.linha .dur{font-family:var(--display);font-variant-numeric:tabular-nums;color:var(--muted)}
+.tag{font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  padding:2px 7px;border-radius:5px;white-space:nowrap}
+.tag.ex{background:var(--extra-fraco);color:var(--extra)}
+.tag.pc{background:var(--foco-fraco);color:var(--foco)}
+.tag.jt{background:var(--pausa-fraco);color:var(--pausa)}
+.vazio{font-size:.84rem;color:var(--muted);padding:14px;text-align:center;
+  border:1px dashed var(--line-forte);border-radius:10px}
+
+/* semana */
+.sem{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;align-items:end}
+.sem .d{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.barra{width:100%;height:86px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:7px;position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.barra .fill{width:100%;background:var(--foco);transition:height .3s}
+.barra.ok .fill{background:var(--ok)}
+.barra .alvo{position:absolute;left:0;right:0;border-top:1px dashed var(--line-forte)}
+.barra.hoje{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.sem .rot{font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.sem .qt{font-family:var(--display);font-size:.8rem;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* calendário */
+.mes-nav{display:flex;align-items:center;gap:8px}
+.mes-nav button{border:1px solid var(--line);background:var(--surface-2);color:var(--fg);
+  border-radius:7px;width:30px;height:30px;line-height:1;font-size:.9rem}
+.mes-nav .lbl{font-weight:600;font-size:.88rem;min-width:118px;text-align:center}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal .hd{font-size:.63rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  text-align:center;padding-bottom:3px;font-weight:600}
+.cel{aspect-ratio:1;max-height:74px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-size:.72rem;position:relative;min-width:0}
+.cel.fora{opacity:0;pointer-events:none}
+.cel.fds{background:transparent}
+.cel.futuro{opacity:.4}
+.cel .dn{font-family:var(--display);font-variant-numeric:tabular-nums;font-size:.72rem;color:var(--muted)}
+.cel .pts{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;max-width:80%}
+.cel .pt{width:4px;height:4px;border-radius:50%;background:var(--foco)}
+.cel.completo{background:var(--ok-fraco);border-color:var(--ok)}
+.cel.completo .dn{color:var(--ok);font-weight:700}
+.cel.completo .pt{background:var(--ok)}
+.cel.zero .dn{color:var(--muted)}
+.cel.hoje{box-shadow:0 0 0 2px var(--accent);border-color:var(--accent)}
+.legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:.72rem;color:var(--muted);margin-top:12px}
+.legenda span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:11px;height:11px;border-radius:3px;border:1px solid var(--line);flex:none}
+
+/* saldo */
+.form-saldo{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:14px;
+  padding-top:14px;border-top:1px solid var(--line)}
+.campo{display:flex;flex-direction:column;gap:4px;min-width:0}
+.campo label{font-size:.7rem;color:var(--muted);font-weight:600}
+input,select{font-family:inherit;font-size:.84rem;padding:8px 10px;border:1px solid var(--line-forte);
+  border-radius:7px;background:var(--surface);color:var(--fg);min-width:0;max-width:100%}
+input[type=number]{width:92px;font-family:var(--display)}
+.lanc{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.lanc .l{display:flex;gap:10px;align-items:center;font-size:.8rem;padding:7px 11px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:8px}
+.lanc .l .q{font-family:var(--display);font-weight:700;color:var(--extra);font-variant-numeric:tabular-nums}
+.lanc .l .n{flex:1;min-width:0;color:var(--muted)}
+
+/* editor da rodada + lançamento avulso */
+.linha-ed{display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:9px;margin-bottom:6px}
+.linha-ed .ord{font-family:var(--display);font-size:.72rem;color:var(--muted);width:18px;flex:none;text-align:right}
+.linha-ed select,.linha-ed input{flex:1;min-width:0;padding:6px 8px;font-size:.82rem}
+.linha-ed input.curto{flex:0 0 86px}
+.mini{border:1px solid var(--line-forte);background:var(--surface);color:var(--muted);
+  border-radius:7px;width:30px;height:30px;flex:none;line-height:1;font-size:.86rem;padding:0}
+.mini:hover:not(:disabled){color:var(--fg);border-color:var(--fg)}
+.mini:disabled{opacity:.3;cursor:not-allowed}
+.mini.x:hover{color:#fff;background:#a8402f;border-color:#a8402f}
+.ed-bloco{margin-top:4px}
+.ed-bloco .eyebrow{margin:14px 0 8px}
+.ed-bloco .eyebrow:first-child{margin-top:4px}
+.linha .lixo{border:0;background:transparent;color:var(--muted);font-size:1rem;line-height:1;
+  padding:2px 5px;border-radius:5px;flex:none}
+.linha .lixo:hover{color:#fff;background:#a8402f}
+.form-avulso{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:14px;
+  padding-top:14px;border-top:1px solid var(--line)}
+.form-avulso select{min-width:150px}
+.dia-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dia-nav input[type=date]{padding:5px 8px;font-size:.8rem}
+.meta-dia{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;
+  padding:9px 11px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px}
+.meta-dia .eyebrow{margin:0}
+.meta-dia input[type=number]{width:62px;padding:5px 8px}
+.meta-dia .btn{padding:6px 12px;font-size:.78rem}
+.meta-dia .btn[aria-pressed="true"]{background:var(--accent-fraco);border-color:var(--accent);color:var(--accent)}
+.meta-dia .nota{flex-basis:100%;margin:0}
+.selo-folga{font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  padding:2px 8px;border-radius:5px;background:var(--accent-fraco);color:var(--accent)}
+.cel.folga,.cel.folga.completo,.cel.folga.zero{background:transparent;border-style:dashed;
+  border-color:var(--line-forte)}
+.cel.folga .dn{color:var(--muted);font-weight:400}
+.cel.folga .pt{background:var(--muted)}
+.barra.folga{border-style:dashed}
+.barra.folga .fill{background:var(--muted)}
+
+/* ajustes */
+details.ajustes{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:0}
+details.ajustes summary{padding:16px 18px;cursor:pointer;font-weight:600;font-size:.95rem;list-style:none}
+details.ajustes summary::-webkit-details-marker{display:none}
+details.ajustes summary::after{content:" ▾";color:var(--muted)}
+details.ajustes[open] summary::after{content:" ▴"}
+.ajustes-corpo{padding:0 18px 18px;display:flex;flex-direction:column;gap:14px}
+.grade-cfg{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:10px}
+.nota{font-size:.76rem;color:var(--muted)}
+.destaque-nota{color:var(--fg);font-weight:600;margin-top:11px}
+
+/* overlay de intervalo */
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(8,12,18,.72);
+  -webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+  display:flex;align-items:center;justify-content:center;
+  padding:max(20px,env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) max(20px,env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
+.alarme{background:var(--surface);border:1px solid var(--line);border-radius:18px;
+  padding:28px 26px 24px;max-width:430px;width:100%;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.alarme.pausa{border-color:var(--pausa);box-shadow:0 0 0 3px var(--pausa-fraco),0 20px 60px rgba(0,0,0,.4)}
+.alarme.fim{border-color:var(--ok);box-shadow:0 0 0 3px var(--ok-fraco),0 20px 60px rgba(0,0,0,.4)}
+.sino{width:42px;height:42px;margin:0 auto 10px;color:var(--pausa)}
+.alarme.fim .sino{color:var(--ok)}
+.sino svg{width:100%;height:100%;display:block;fill:currentColor}
+.sino.toca{animation:bal .9s ease-in-out infinite;transform-origin:50% 12%}
+@keyframes bal{0%,100%{transform:rotate(-11deg)}50%{transform:rotate(11deg)}}
+.alarme .tit{font-size:.7rem;text-transform:uppercase;letter-spacing:.14em;font-weight:700;color:var(--pausa)}
+.alarme.fim .tit{color:var(--ok)}
+.alarme .big{font-family:var(--display);font-weight:700;font-size:4rem;line-height:1.05;
+  font-variant-numeric:tabular-nums;margin:8px 0 6px;color:var(--pausa)}
+.alarme.fim .big{font-size:2.9rem;color:var(--ok)}
+.alarme .msg{font-size:.95rem;color:var(--fg);margin-bottom:4px;font-weight:600}
+.alarme .det{font-size:.8rem;color:var(--muted)}
+.alarme .acoes{display:flex;gap:9px;justify-content:center;margin-top:22px;flex-wrap:wrap}
+.alarme .acoes .btn{min-width:124px}
+.btn.parar{background:var(--fg);border-color:var(--fg);color:var(--bg);font-size:.92rem;padding:12px 22px}
+.barra-som{position:fixed;left:0;right:0;z-index:60;
+  bottom:env(safe-area-inset-bottom,0px);
+  background:var(--fg);color:var(--bg);
+  display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+  padding:11px max(16px,env(safe-area-inset-right,0px)) 11px max(16px,env(safe-area-inset-left,0px));
+  font-size:.85rem;font-weight:600;box-shadow:0 -6px 24px rgba(0,0,0,.25)}
+.barra-som .btn{background:var(--bg);border-color:var(--bg);color:var(--fg);padding:7px 16px}
+@media (prefers-reduced-motion:reduce){.sino.toca{animation:none}*{transition:none!important}}
+
+/* aviso do alarme pelo Relógio do iPhone, dentro do cartão do cronômetro */
+.rel-ios{margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;
+  background:var(--surface-2);font-size:.82rem;line-height:1.4;display:flex;gap:10px;
+  align-items:center;justify-content:space-between;flex-wrap:wrap;text-align:left}
+.rel-ios.ok{border-color:var(--ok);background:var(--ok-fraco)}
+.rel-ios.alerta{border-color:var(--foco);background:var(--foco-fraco)}
+.rel-ios span{flex:1 1 200px}
+.rel-ios .btn{flex:none}
+
+/* iPhone: campo com letra menor que 16px faz o Safari dar zoom ao tocar */
+@supports (-webkit-touch-callout:none){ input,select,textarea{font-size:16px} }
+
+@media(max-width:520px){
+  .card{padding:15px}
+  .form-saldo .campo:nth-child(2){flex-basis:100%}
+  .sem{gap:4px}
+  .barra{height:68px}
+  .cal{gap:3px}
+  .linha{font-size:.8rem;padding:8px 10px}
+  .slot{padding:7px 9px;font-size:.7rem}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="topo">
+    <div>
+      <h1>Ciclos de Estudo</h1>
+      <div class="data" id="dataHoje">—</div>
+    </div>
+    <div class="sync"><span class="ponto" id="syncPonto"></span><span id="syncTxt">verificando…</span></div>
+  </header>
+
+  <!-- CRONÔMETRO -->
+  <section class="card timer">
+    <div class="tipos" id="tipos"></div>
+
+    <div class="anel-area">
+      <div class="anel">
+        <svg viewBox="0 0 260 260" aria-hidden="true">
+          <circle cx="130" cy="130" r="112" fill="none" stroke="var(--line)" stroke-width="14"></circle>
+          <circle id="arco" cx="130" cy="130" r="112" fill="none" stroke="var(--foco)" stroke-width="14"
+                  stroke-linecap="round" transform="rotate(-90 130 130)" stroke-dasharray="703.7" stroke-dashoffset="703.7"></circle>
+          <circle id="arcoExtra" cx="130" cy="130" r="126" fill="none" stroke="var(--extra)" stroke-width="5"
+                  stroke-linecap="round" transform="rotate(-90 130 130)" stroke-dasharray="791.7" stroke-dashoffset="791.7"></circle>
+          <g id="ticks" stroke="var(--bg)" stroke-width="3"></g>
+        </svg>
+        <div class="centro">
+          <div class="estado" id="estado">pronto</div>
+          <div class="relogio" id="relogio">00:00</div>
+          <div class="sub" id="sub">ciclo de 50 min</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl" id="ctrl"></div>
+    <div class="rel-ios" id="relIos" hidden></div>
+
+    <div class="linha-extra">
+      <label class="chk"><input type="checkbox" id="chkExtra"> marcar este ciclo como extra</label>
+    </div>
+
+    <div class="avisos">
+      <button class="btn sutil" id="btnNotif">Permitir notificações</button>
+      <button class="btn sutil" id="btnTeste">Testar alarme</button>
+      <p class="aviso-txt" id="avisoTxt"></p>
+    </div>
+  </section>
+
+  <!-- RODADA -->
+  <section class="card">
+    <div class="cab">
+      <h2 id="rodadaTit">Rodada de etapas</h2>
+      <div class="dia-nav">
+        <span class="eyebrow" id="rodadaSub">—</span>
+        <button class="btn sutil" id="btnEditarRodada">Editar</button>
+      </div>
+    </div>
+    <div class="plano" id="plano"></div>
+    <p class="nota destaque-nota" id="rodadaHoje" hidden></p>
+    <p class="nota" id="rodadaNota" style="margin-top:7px"></p>
+
+    <div id="editorRodada" hidden style="margin-top:16px;padding-top:15px;border-top:1px solid var(--line)">
+      <div class="ed-bloco">
+        <div class="eyebrow">Ordem das etapas</div>
+        <div id="seqLista"></div>
+        <button class="btn sutil" id="btnAddEtapa">+ Acrescentar etapa</button>
+      </div>
+      <div class="ed-bloco">
+        <div class="eyebrow">Tipos de bloco</div>
+        <div id="tiposLista"></div>
+        <button class="btn sutil" id="btnAddTipo">+ Novo tipo</button>
+      </div>
+      <p class="nota" style="margin-top:12px">A ordem é sugestão, não trilho: começar por outro bloco só ocupa a vaga daquele tipo. O nome à esquerda é o que aparece no cronômetro; o da direita, a etiqueta curta das fichas acima.</p>
+    </div>
+  </section>
+
+  <!-- DIA -->
+  <section class="card">
+    <div class="cab">
+      <h2 id="diaTit">Hoje</h2>
+      <div class="dia-nav">
+        <input type="date" id="diaData" aria-label="Dia mostrado">
+        <button class="btn sutil" id="btnVoltarHoje" hidden>Ir para hoje</button>
+        <span class="eyebrow" id="metaHoje">—</span>
+      </div>
+    </div>
+    <div class="metas" id="metasHoje"></div>
+    <div class="meta-dia">
+      <span class="eyebrow">Meta deste dia</span>
+      <input type="number" id="metaDiaVal" min="0" max="20" aria-label="Meta de ciclos deste dia">
+      <button class="btn" id="btnFolga" aria-pressed="false">Folga</button>
+      <button class="btn sutil" id="btnMetaPadrao">Voltar ao padrão</button>
+      <p class="nota" id="metaDiaNota"></p>
+    </div>
+    <div class="duplo">
+      <div class="coluna">
+        <div class="eyebrow">Saldo de ciclos</div>
+        <div class="coluna" id="ciclosDia"></div>
+      </div>
+      <div class="coluna">
+        <div class="eyebrow">Linha do tempo</div>
+        <div class="registro" id="registroHoje"></div>
+      </div>
+    </div>
+    <div class="form-avulso">
+      <div class="campo"><label for="avTipo">Tempo avulso — bloco</label><select id="avTipo"></select></div>
+      <div class="campo"><label for="avMin">Minutos</label><input type="number" id="avMin" min="1" max="600" step="5" value="50"></div>
+      <button class="btn" id="btnAvulso">Lançar tempo</button>
+      <p class="nota" id="avAviso" style="flex-basis:100%"></p>
+    </div>
+  </section>
+
+  <!-- SEMANA -->
+  <section class="card">
+    <div class="cab"><h2>Semana</h2><span class="eyebrow" id="semResumo">—</span></div>
+    <div class="sem" id="semana"></div>
+  </section>
+
+  <!-- MÊS -->
+  <section class="card">
+    <div class="cab">
+      <h2>Mês</h2>
+      <div class="mes-nav">
+        <button id="mesAnt" aria-label="Mês anterior">‹</button>
+        <span class="lbl" id="mesLbl">—</span>
+        <button id="mesProx" aria-label="Próximo mês">›</button>
+      </div>
+    </div>
+    <div class="metas" id="metasMes"></div>
+    <div class="cal" id="cal"></div>
+    <div class="legenda">
+      <span><i class="sw" style="background:var(--ok-fraco);border-color:var(--ok)"></i> meta fechada</span>
+      <span><i class="sw" style="background:var(--surface-2)"></i> parcial</span>
+      <span><i class="sw" style="background:transparent"></i> fim de semana</span>
+      <span>cada ponto = 1 ciclo cheio</span>
+    </div>
+  </section>
+
+  <!-- SALDO -->
+  <section class="card">
+    <div class="cab"><h2>Saldo</h2><span class="eyebrow" id="saldoAno">—</span></div>
+    <div class="metas" id="metasSaldo"></div>
+    <div class="form-saldo">
+      <div class="campo"><label for="usoMin">Usar saldo (min)</label><input type="number" id="usoMin" min="1" step="5" value="50"></div>
+      <div class="campo" style="flex:1"><label for="usoNota">Motivo</label><input type="text" id="usoNota" placeholder="ex.: folga de sábado" style="width:100%"></div>
+      <button class="btn" id="btnUsar">Lançar uso</button>
+    </div>
+    <div class="lanc" id="lancamentos"></div>
+    <p class="nota" id="saldoNota" style="margin-top:12px"></p>
+  </section>
+
+  <!-- AJUSTES -->
+  <details class="ajustes">
+    <summary>Ajustes e dados</summary>
+    <div class="ajustes-corpo">
+      <div class="grade-cfg">
+        <div class="campo"><label for="cfgCiclo">Ciclo (min)</label><input type="number" id="cfgCiclo" min="5" max="180"></div>
+        <div class="campo"><label for="cfgP1">1º intervalo (min)</label><input type="number" id="cfgP1" min="1" max="179"></div>
+        <div class="campo"><label for="cfgP2">2º intervalo (min)</label><input type="number" id="cfgP2" min="1" max="179"></div>
+        <div class="campo"><label for="cfgPd">Intervalo dura (s)</label><input type="number" id="cfgPd" min="5" max="600"></div>
+      </div>
+      <div class="eyebrow">Meta de ciclos por dia</div>
+      <div class="grade-cfg">
+        <div class="campo"><label for="cfgMetaSem">Meta seg–sex</label><input type="number" id="cfgMetaSem" min="0" max="20"></div>
+        <div class="campo"><label for="cfgMetaFds">Meta sáb–dom</label><input type="number" id="cfgMetaFds" min="0" max="20"></div>
+      </div>
+      <p class="nota">A meta diária conta ciclos, não etapas: fechar 6 ciclos pinta o dia de verde, seja qual for o bloco — Organização inclusive, já que é tempo gasto. As etapas e os tipos de bloco se editam no cartão da rodada, em Editar.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="btnCopiar">Copiar backup (JSON)</button>
+        <button class="btn" id="btnImportar">Importar backup</button>
+        <button class="btn" id="btnAtualizar">Procurar atualização</button>
+      </div>
+      <div id="caixaImport" hidden style="display:flex;flex-direction:column;gap:8px">
+        <label class="nota" for="txtImport">Cole aqui o JSON copiado da outra versão:</label>
+        <textarea id="txtImport" rows="4" style="font-family:var(--display);font-size:.78rem;padding:9px 11px;border:1px solid var(--line-forte);border-radius:7px;background:var(--surface);color:var(--fg);width:100%;resize:vertical"></textarea>
+        <div><button class="btn" id="btnImportarOk">Confirmar importação</button></div>
+        <p class="nota" id="avisoImport"></p>
+      </div>
+      <div class="eyebrow">Alarme pelo Relógio do iPhone</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <p class="nota">Com a tela bloqueada o iPhone congela o app, e o som dele não toca. Ligando isto, cada aviso (intervalos e fim do ciclo) vira um timer do app Relógio — que toca com a tela bloqueada e até no silencioso. Precisa do atalho descrito no LEIA-ME. Este ajuste vale só para este aparelho.</p>
+        <label class="chk"><input type="checkbox" id="relLigado"> Usar o Relógio do iPhone para os avisos</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="campo" style="flex:1;min-width:180px"><label for="relNome">Nome do atalho</label>
+            <input type="text" id="relNome" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:100%"></div>
+          <button class="btn" id="btnRelTeste">Testar (timer de 10 s)</button>
+        </div>
+      </div>
+
+      <div class="eyebrow">Sincronizar com outros aparelhos</div>
+      <div id="syncSem" style="display:flex;flex-direction:column;gap:8px">
+        <p class="nota">Para ter o mesmo histórico no computador e no iPhone, cole aqui o código de acesso do GitHub (um token com a permissão <b>gist</b>) — o mesmo código nos dois aparelhos. O passo a passo está no LEIA-ME.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="campo" style="flex:1;min-width:210px"><label for="syncToken">Código de acesso</label>
+            <input type="text" id="syncToken" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ghp_…" style="width:100%;font-family:var(--display)"></div>
+          <button class="btn" id="btnColarToken">Colar</button>
+          <button class="btn" id="btnConectar">Conectar</button>
+        </div>
+      </div>
+      <div id="syncCom" hidden style="display:flex;flex-direction:column;gap:8px">
+        <p class="nota" id="syncInfo"></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="btnSyncAgora">Sincronizar agora</button>
+          <button class="btn" id="btnCopiarToken">Copiar código (para outro aparelho)</button>
+          <button class="btn" id="btnDesconectar">Desconectar</button>
+        </div>
+      </div>
+      <p class="nota" id="syncErro" style="color:var(--neg)"></p>
+      <p class="nota" id="notaDados">—</p>
+    </div>
+  </details>
+
+</div>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" hidden>
+  <div class="alarme pausa" id="modal">
+    <div class="sino" id="mSino" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22.3a2.3 2.3 0 0 0 2.29-2.3H9.71A2.3 2.3 0 0 0 12 22.3Zm7.2-5.1v-5.7c0-3.2-1.84-5.88-4.74-6.6v-.71a1.46 1.46 0 1 0-2.92 0v.71C8.65 5.62 6.8 8.29 6.8 11.5v5.7l-2 2v1.02h16.4V19.2l-2-2Z"/></svg></div>
+    <div class="tit" id="mTit">intervalo</div>
+    <div class="big num" id="mBig">30</div>
+    <div class="msg" id="mMsg">Olhe para um ponto distante</div>
+    <div class="det" id="mDet">Pisque devagar algumas vezes. O cronômetro está parado.</div>
+    <div class="acoes" id="mAcoes"></div>
+  </div>
+</div>
+
+<div class="barra-som" id="barraSom" hidden>
+  <span>O alarme está tocando</span>
+  <button class="btn" id="btnPararSom">Parar som</button>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- constantes ---------- */
+var TIPOS_PADRAO = [
+  {id:"anki", nome:"Anki no Claude",  curto:"Anki"},
+  {id:"tec",  nome:"Questões no TEC", curto:"TEC"},
+  {id:"nova", nome:"Matéria nova",    curto:"Nova"},
+  {id:"org",  nome:"Organização",     curto:"Organiz."}
+];
+var CFG_PADRAO = {
+  cicloMin:50, p1:20, p2:40, pausaSeg:30,
+  metaSem:6, metaFds:3,
+  tipos: TIPOS_PADRAO.slice(),
+  sequencia: ["anki","tec","anki","tec","anki","tec","nova"]
+};
+var VERSAO = "15 · 22/11/2026";
+var LS_DADOS = "ciclos.dados.v1";
+var LS_TIMER = "ciclos.timer.v1";
+var EH_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+             (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+var NA_TELA_INICIO = navigator.standalone === true ||
+             (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+var DIAS_SEM = ["dom","seg","ter","qua","qui","sex","sáb"];
+var MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+
+/* ---------- estado ---------- */
+var cfg = normalizaCfg(null);
+var dias = {};           // "YYYY-MM-DD" -> {data, ciclos:[], meta, atualizadoEm}
+var usos = [];           // {id, data, min, nota, em}
+var mesVista = null;     // {a, m}
+var diaVista = null;     // "YYYY-MM-DD" em foco no cartão do dia
+var db = null;
+var sujos = {};          // chaves pendentes de gravação
+
+var t = {
+  ativo:false, tipo:"anki", extra:false,
+  acum:0, desde:null, iniciado:null,
+  feitas:[], emPausa:false, pausaAte:null, pausaDe:null, avisouFim:false,
+  soando:null, soneca:null
+};
+
+/* ---------- tipos de bloco ---------- */
+function listaTipos(){ return (cfg.tipos && cfg.tipos.length) ? cfg.tipos : TIPOS_PADRAO; }
+function tipoDe(id){
+  var l = listaTipos();
+  for(var i=0;i<l.length;i++) if(l[i].id===id) return l[i];
+  return {id:id, nome:"Bloco removido", curto:"?"};
+}
+function temTipo(id){
+  var l = listaTipos();
+  for(var i=0;i<l.length;i++) if(l[i].id===id) return true;
+  return false;
+}
+function nomeTipo(id){ return tipoDe(id).nome; }
+function curtoTipo(id){ var x=tipoDe(id); return x.curto || x.nome.slice(0,8); }
+function idLivre(base){
+  var usados = {};
+  listaTipos().forEach(function(x){ usados[x.id]=true; });
+  var i = 1, id = base;
+  while(usados[id]){ i++; id = base+i; }
+  return id;
+}
+/* Aceita config de qualquer versão anterior e devolve uma válida. */
+function normalizaCfg(bruto){
+  var c = Object.assign({}, CFG_PADRAO, bruto||{});
+  if(!Array.isArray(c.tipos) || !c.tipos.length) c.tipos = TIPOS_PADRAO.slice();
+  c.tipos = c.tipos.filter(function(x){ return x && x.id; }).map(function(x){
+    return {id:String(x.id), nome:String(x.nome||x.id), curto:String(x.curto||x.nome||x.id).slice(0,12)};
+  });
+  if(!c.tipos.length) c.tipos = TIPOS_PADRAO.slice();
+  /* versão antiga guardava contagens por tipo em cfg.plano */
+  if(!Array.isArray(c.sequencia) && bruto && bruto.plano){
+    var pl = bruto.plano, seq = [], mx = Math.max(pl.anki||0, pl.tec||0);
+    for(var i=0;i<mx;i++){ if(i<(pl.anki||0)) seq.push("anki"); if(i<(pl.tec||0)) seq.push("tec"); }
+    for(var j=0;j<(pl.nova||0);j++) seq.push("nova");
+    c.sequencia = seq;
+  }
+  if(!Array.isArray(c.sequencia)) c.sequencia = CFG_PADRAO.sequencia.slice();
+  var validos = {};
+  c.tipos.forEach(function(x){ validos[x.id]=true; });
+  c.sequencia = c.sequencia.filter(function(k){ return validos[k]; });
+  delete c.plano;
+  return c;
+}
+
+/* ---------- utilidades ---------- */
+function pad(n){ return (n<10?"0":"")+n; }
+function chave(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function hoje(){ return chave(new Date()); }
+function daChave(s){ var p=s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function novoId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function mmss(s){ s=Math.max(0,Math.floor(s)); return pad(Math.floor(s/60))+":"+pad(s%60); }
+function hm(s){
+  s=Math.max(0,Math.round(s)); var h=Math.floor(s/3600), m=Math.round((s%3600)/60);
+  if(m===60){h++;m=0;}
+  return h>0 ? h+"h"+pad(m) : m+"min";
+}
+function el(id){ return document.getElementById(id); }
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+
+/* ---------- persistência ---------- */
+function salvarLocal(){
+  lsSet(LS_DADOS, JSON.stringify({cfg:cfg, dias:dias, usos:usos}));
+}
+function carregarLocal(){
+  var raw = lsGet(LS_DADOS); if(!raw) return;
+  try{
+    var o = JSON.parse(raw);
+    if(o.cfg) cfg = normalizaCfg(o.cfg);
+    if(o.dias) dias = o.dias;
+    if(o.usos) usos = o.usos;
+  }catch(e){}
+}
+function marcarSujo(tipo, id){ sujos[tipo+"|"+id] = true; }
+
+/* O registro do dia é fiel: cada sessão fica como aconteceu, com hora de
+   início e fim. A contagem de ciclos NÃO mexe nos registros — ela é derivada
+   do tempo total do dia (ver resumoDia). Versões antigas juntavam os registros
+   à força; isso saiu. */
+
+/* ---------- sincronização entre aparelhos (gist secreto do GitHub) ----------
+   O histórico inteiro fica num único arquivo JSON, num gist secreto da conta
+   do GitHub. Cada aparelho continua guardando tudo localmente e funciona sem
+   internet; quando há conexão, junta o que tem com o que está lá:
+   - ciclos se juntam por id, então nada some porque o outro aparelho não
+     tinha; um ciclo apagado deixa uma lápide (dia.apagados) para não voltar;
+   - meta e folga do dia ficam com o ajuste mais recente (dia.ajusteEm);
+   - usos de saldo se juntam por id;
+   - a configuração fica com a versão gravada por último (cfg.atualizadoEm). */
+var LS_SYNC = "ciclos.sync.v1";
+var GIST_ARQ = "ciclos-de-estudo.json";
+var GIST_DESC = "Ciclos de Estudo — sincronização entre aparelhos (não apague)";
+var sync = {token:"", gistId:"", ultimo:0, rodando:false, pendente:false, espera:null, erro:""};
+
+function carregarSync(){
+  try{
+    var o = JSON.parse(lsGet(LS_SYNC) || "{}");
+    sync.token = o.token || ""; sync.gistId = o.gistId || ""; sync.ultimo = o.ultimo || 0;
+  }catch(e){}
+}
+function salvarSync(){
+  lsSet(LS_SYNC, JSON.stringify({token:sync.token, gistId:sync.gistId, ultimo:sync.ultimo}));
+}
+function ErroSync(cod, det){ this.cod = cod; this.det = det; }
+
+async function gh(metodo, caminho, corpo){
+  var h = {"Accept":"application/vnd.github+json", "Authorization":"Bearer "+sync.token};
+  if(corpo) h["Content-Type"] = "application/json";
+  var r;
+  try{
+    r = await fetch("https://api.github.com"+caminho, {
+      method:metodo, headers:h, cache:"no-store",
+      body: corpo ? JSON.stringify(corpo) : undefined
+    });
+  }catch(e){ throw new ErroSync("rede"); }
+  if(r.status === 401) throw new ErroSync("token");
+  if(r.status === 403 || r.status === 429)
+    throw new ErroSync(r.headers.get("x-ratelimit-remaining") === "0" ? "limite" : "permissao");
+  if(r.status === 404) throw new ErroSync("404");
+  if(!r.ok) throw new ErroSync("http", r.status);
+  return r.json();
+}
+async function acharGist(){
+  for(var pg = 1; pg <= 10; pg++){
+    var l = await gh("GET", "/gists?per_page=100&page="+pg);
+    for(var i = 0; i < l.length; i++) if(l[i].files && l[i].files[GIST_ARQ]) return l[i].id;
+    if(l.length < 100) break;
+  }
+  return "";
+}
+async function lerGist(id){
+  var g = await gh("GET", "/gists/"+id);
+  var f = g.files && g.files[GIST_ARQ];
+  if(!f) throw new ErroSync("404");
+  var txt = f.content;
+  if(f.truncated && f.raw_url){
+    try{ txt = await (await fetch(f.raw_url, {cache:"no-store"})).text(); }
+    catch(e){ throw new ErroSync("rede"); }
+  }
+  try{ return JSON.parse(txt); }catch(e){ return null; }
+}
+
+/* Texto canônico (chaves em ordem) para comparar dois estados sem falso alarme. */
+function canon(o){
+  if(Array.isArray(o)) return "["+o.map(canon).join(",")+"]";
+  if(o && typeof o === "object")
+    return "{"+Object.keys(o).sort().filter(function(k){ return o[k] !== undefined; })
+      .map(function(k){ return JSON.stringify(k)+":"+canon(o[k]); }).join(",")+"}";
+  return JSON.stringify(o === undefined ? null : o);
+}
+/* Dias de versões antigas não têm ajusteEm: um dia alterado (folga ou meta
+   fora do padrão) vale mais que um dia no padrão. */
+function ajusteDe(ds, d){
+  if(typeof d.ajusteEm === "number") return d.ajusteEm;
+  return (d.folga || (typeof d.meta === "number" && d.meta !== metaPara(ds))) ? 1 : 0;
+}
+function mesclarDia(ds, a, b){
+  if(!a) return b;
+  if(!b) return a;
+  var ap = {};
+  [a.apagados, b.apagados].forEach(function(x){
+    if(x) Object.keys(x).forEach(function(k){ ap[k] = Math.max(ap[k]||0, x[k]||1); });
+  });
+  var vistos = {}, ciclos = [], novos = 0;
+  (a.ciclos||[]).forEach(function(c){
+    if(!c || !c.id || ap[c.id] || vistos[c.id]) return;
+    vistos[c.id] = true; ciclos.push(c);
+  });
+  (b.ciclos||[]).forEach(function(c){
+    if(!c || !c.id || ap[c.id] || vistos[c.id]) return;
+    vistos[c.id] = true; ciclos.push(c); novos++;
+  });
+  if(novos){
+    /* ordem cronológica; um ciclo sem hora acompanha o vizinho anterior */
+    var ult = 0;
+    ciclos = ciclos.map(function(c, i){ ult = c.fim || c.inicio || ult; return {c:c, k:ult, i:i}; })
+      .sort(function(x, y){ return (x.k - y.k) || (x.i - y.i); })
+      .map(function(x){ return x.c; });
+  }
+  var fa = ajusteDe(ds, a), fb = ajusteDe(ds, b), fonte = fb > fa ? b : a;
+  var r = Object.assign({}, b, a);
+  r.data = ds; r.ciclos = ciclos; r.meta = fonte.meta;
+  r.atualizadoEm = Math.max(a.atualizadoEm||0, b.atualizadoEm||0);
+  if(fonte.folga) r.folga = true; else delete r.folga;
+  if(Math.max(fa, fb) > 1) r.ajusteEm = Math.max(fa, fb); else delete r.ajusteEm;
+  if(Object.keys(ap).length) r.apagados = ap; else delete r.apagados;
+  return r;
+}
+/* Junta o estado local (loc) com o de fora (rem: o gist ou um backup).
+   Empate na configuração fica com o de fora, para dois aparelhos que nunca
+   mexeram nela não ficarem trocando de lado a cada sincronização. */
+function mesclarTudo(loc, rem){
+  if(!rem || typeof rem !== "object") return loc;
+  var ca = loc.cfg || {}, cb = rem.cfg;
+  var out = {cfg: (cb && (cb.atualizadoEm||0) >= (ca.atualizadoEm||0)) ? cb : ca, dias:{}, usos:[]};
+  var ld = loc.dias || {}, rd = rem.dias || {}, ks = {};
+  Object.keys(ld).forEach(function(k){ ks[k] = 1; });
+  Object.keys(rd).forEach(function(k){ ks[k] = 1; });
+  Object.keys(ks).sort().forEach(function(ds){ out.dias[ds] = mesclarDia(ds, ld[ds], rd[ds]); });
+  var tem = {};
+  (loc.usos||[]).concat(rem.usos||[]).forEach(function(u){
+    if(u && u.id && !tem[u.id]){ tem[u.id] = true; out.usos.push(u); }
+  });
+  out.usos.sort(function(x, y){ return (y.em||0) - (x.em||0); });
+  return out;
+}
+
+function agendarSync(ms){
+  if(!sync.token) return;
+  clearTimeout(sync.espera);
+  sync.espera = setTimeout(sincronizar, ms);
+}
+async function sincronizar(){
+  if(!sync.token) return;
+  if(sync.rodando){ sync.pendente = true; return; }
+  clearTimeout(sync.espera); sync.espera = null;
+  sync.rodando = true; sync.pendente = false;
+  statusSync(false, "sincronizando…");
+  try{
+    if(!sync.gistId){ sync.gistId = await acharGist(); salvarSync(); }
+    var rem = null;
+    if(sync.gistId){
+      try{ rem = await lerGist(sync.gistId); }
+      catch(e){ if(e && e.cod === "404"){ sync.gistId = ""; rem = null; } else throw e; }
+    }
+    if(rem && (typeof rem !== "object" || !rem.dias)) rem = null;
+    /* Daqui até gravar não há await: a junção usa o estado local deste
+       instante, então um ciclo encerrado durante a busca não se perde. */
+    var antes = canon({cfg:cfg, dias:dias, usos:usos});
+    var m = mesclarTudo({cfg:cfg, dias:dias, usos:usos}, rem);
+    if(canon(m) !== antes){
+      cfg = normalizaCfg(m.cfg); dias = m.dias; usos = m.usos;
+      salvarLocal();
+      if(!t.ativo){ var p = proximoSugerido(); if(p) t.tipo = p; else if(!temTipo(t.tipo)) t.tipo = listaTipos()[0].id; }
+      desenharTicks(); render();
+    }
+    var agora = canon({cfg:cfg, dias:dias, usos:usos});
+    var remC = rem ? canon({cfg:rem.cfg, dias:rem.dias, usos:rem.usos||[]}) : null;
+    if(remC !== agora){
+      var files = {};
+      files[GIST_ARQ] = {content: JSON.stringify({formato:1, app:"ciclos-de-estudo", salvoEm:Date.now(),
+                                                  cfg:cfg, dias:dias, usos:usos})};
+      if(sync.gistId) await gh("PATCH", "/gists/"+sync.gistId, {files:files});
+      else {
+        var g = await gh("POST", "/gists", {description:GIST_DESC, public:false, files:files});
+        sync.gistId = g.id;
+      }
+    }
+    sync.ultimo = Date.now(); sync.erro = ""; salvarSync();
+  }catch(e){
+    sync.erro = (e && e.cod) || "erro";
+    if(sync.erro === "404") sync.erro = "permissao";   // criar gist sem a permissão gist dá 404
+  }finally{
+    sync.rodando = false;
+    pintarSync();
+    if(sync.pendente){ sync.pendente = false; agendarSync(1500); }
+  }
+}
+var MSG_SYNC = {
+  rede:"Sem internet agora. Tudo continua guardado neste aparelho e sobe sozinho quando a conexão voltar.",
+  token:"O GitHub recusou o código de acesso — ele pode ter expirado ou sido apagado. Gere outro, desconecte e conecte de novo.",
+  permissao:"O código de acesso não tem a permissão gist. Gere outro marcando a caixa gist.",
+  limite:"O GitHub limitou os acessos por alguns minutos. A sincronização tenta de novo sozinha.",
+  http:"O GitHub respondeu com erro. A sincronização tenta de novo sozinha.",
+  erro:"Algo deu errado na sincronização. Ela tenta de novo sozinha."
+};
+function pintarSync(){
+  var lig = !!sync.token;
+  el("syncSem").hidden = lig; el("syncCom").hidden = !lig;
+  if(!lig){ statusSync(true, "salvo só neste aparelho"); return; }
+  var quando = sync.ultimo ? new Date(sync.ultimo) : null;
+  var q = quando ? (chave(quando) === hoje() ? "hoje às "+hhmm(sync.ultimo)
+                    : pad(quando.getDate())+"/"+pad(quando.getMonth()+1)+" às "+hhmm(sync.ultimo)) : "ainda não";
+  if(sync.rodando) statusSync(false, "sincronizando…");
+  else if(sync.erro) statusSync(false, sync.erro === "rede" ? "offline · sobe depois" : "sincronização com erro");
+  else statusSync(true, "sincronizado "+(quando && chave(quando)===hoje() ? hhmm(sync.ultimo) : q));
+  el("syncInfo").textContent = "Conectado. Última sincronização: "+q+
+    ". Este aparelho busca as novidades ao abrir, ao voltar para o app e a cada minuto, e envia o que mudou alguns segundos depois de cada registro.";
+  el("syncErro").textContent = sync.erro ? (MSG_SYNC[sync.erro] || MSG_SYNC.erro) : "";
+}
+async function conectarDb(){
+  carregarSync();
+  pintarSync();
+  if(sync.token) sincronizar();
+}
+async function puxarDb(){ return sincronizar(); }
+function empurrarDb(){ agendarSync(2500); }
+function statusSync(ok, txt){
+  el("syncPonto").className = "ponto"+(ok?" on":"");
+  el("syncTxt").textContent = txt;
+}
+
+/* ---------- modelo ---------- */
+function metaPara(ds){
+  var dw = daChave(ds).getDay();
+  return (dw===0||dw===6) ? cfg.metaFds : cfg.metaSem;
+}
+function garantirDia(ds){
+  if(!dias[ds]) dias[ds] = {data:ds, ciclos:[], meta:metaPara(ds), atualizadoEm:Date.now()};
+  if(typeof dias[ds].meta !== "number") dias[ds].meta = metaPara(ds);
+  return dias[ds];
+}
+function resumoDia(ds){
+  var d = dias[ds];
+  var meta = d && typeof d.meta==="number" ? d.meta : metaPara(ds);
+  var alvo = cfg.cicloMin*60, folga = !!(d && d.folga), metaSeg = meta*alvo;
+  var seg = 0, sessoes = 0;
+  if(d && d.ciclos) d.ciclos.forEach(function(c){ seg += c.seg; sessoes++; });
+  /* Os ciclos saem do tempo total do dia, venha ele de onde vier: 3h29m56s
+     com ciclo de 50 min são 4 ciclos cheios e 9m56s de sobra. */
+  var cheios = Math.floor(seg/alvo), sobra = seg - cheios*alvo;
+  return {cheios:cheios, sobra:sobra, sessoes:sessoes, seg:seg,
+          meta:meta, metaSeg:metaSeg, folga:folga,
+          deltaSeg: folga ? 0 : (seg - metaSeg),
+          bateu: folga || seg >= metaSeg};
+}
+/* Primeiro dia com qualquer ciclo registrado. Antes dele não há falta a
+   cobrar: o app simplesmente não existia na rotina. */
+function primeiroRegistro(){
+  var p = null;
+  Object.keys(dias).forEach(function(ds){
+    if((dias[ds].ciclos||[]).length && (!p || ds < p)) p = ds;
+  });
+  return p;
+}
+/* O que o dia acrescenta ou tira do saldo do mês.
+   Dia acima da meta e excedente de sessão esticada entram como crédito;
+   dia abaixo da meta entra como falta. HOJE só soma o lado positivo, porque
+   o dia ainda não acabou — a falta de hoje só pesa a partir de amanhã. */
+function contribDia(ds){
+  var r = resumoDia(ds);
+  if(r.folga) return {credito:0, falta:0, liquido:0};
+  var credito = 0, falta = 0;
+  if(r.deltaSeg > 0) credito += r.deltaSeg;
+  else if(r.deltaSeg < 0 && ds !== hoje()) falta = -r.deltaSeg;
+  return {credito:credito, falta:falta, liquido:credito-falta};
+}
+/* O saldo fecha e zera a cada mês: nada atravessa a virada. */
+function saldoDoMes(ano, mes){
+  var credito=0, falta=0, usado=0;
+  var hj = hoje(), ini = primeiroRegistro();
+  if(ini){
+    var ult = new Date(ano, mes+1, 0).getDate();
+    for(var d=1; d<=ult; d++){
+      var ds = ano+"-"+pad(mes+1)+"-"+pad(d);
+      if(ds > hj) break;
+      if(ds < ini) continue;
+      var c = contribDia(ds);
+      credito += c.credito; falta += c.falta;
+    }
+  }
+  usos.forEach(function(u){
+    var t = String(u.data);
+    if(+t.slice(0,4)===ano && +t.slice(5,7)===mes+1) usado += u.min*60;
+  });
+  return {credito:credito, falta:falta, usado:usado, liquido:credito-falta-usado};
+}
+/* "+1h30", "−45min" ou "—" */
+function comSinal(seg){
+  if(!seg) return "—";
+  return (seg>0 ? "+" : "−") + hm(Math.abs(seg));
+}
+function sequenciaPlano(){ return (cfg.sequencia||[]).slice(); }
+function capsDaSequencia(){
+  var cap = {};
+  sequenciaPlano().forEach(function(k){ cap[k] = (cap[k]||0)+1; });
+  return cap;
+}
+
+/* ---------- áudio: toques avulsos e alarme em loop ---------- */
+var actx=null, avulsos=[], keepalive=null, rings={}, bufs={}, testeSoando=false;
+function audioOn(){
+  try{
+    if(!actx){ var AC = window.AudioContext||window.webkitAudioContext; if(!AC) return null; actx = new AC(); }
+    if(actx.state==="suspended") actx.resume();
+    return actx;
+  }catch(e){ return null; }
+}
+function toque(quando, padrao){
+  var ctx = audioOn(); if(!ctx) return;
+  padrao.forEach(function(p){
+    try{
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type="sine"; o.frequency.value=p.f;
+      var ini = quando + p.d, fim = ini + p.dur;
+      g.gain.setValueAtTime(0.0001, ini);
+      g.gain.exponentialRampToValueAtTime(0.28, ini+0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, fim);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ini); o.stop(fim+0.05);
+      avulsos.push(o);
+    }catch(e){}
+  });
+}
+var PAD_VOLTA = [{f:1046,d:0,dur:0.12},{f:1318,d:0.17,dur:0.26}];
+function limparAvulsos(){
+  avulsos.forEach(function(o){ try{o.stop();}catch(e){} });
+  avulsos=[];
+}
+
+/* Um toque gravado num buffer que roda em laço, como o despertador do Relógio:
+   começa na hora exata marcada no relógio do áudio (que não sofre a freada que
+   o navegador dá nos temporizadores de aba em segundo plano) e só cala quando
+   alguém manda parar. */
+var RECEITAS = {
+  pausa:{dur:3.0, vol:0.20, notas:[{f:784,t:0,d:0.26},{f:1046,t:0.34,d:0.32}]},
+  fim:  {dur:2.2, vol:0.27, notas:[{f:880,t:0,d:0.17},{f:1174,t:0.21,d:0.17},{f:880,t:0.42,d:0.17},{f:1174,t:0.63,d:0.36}]}
+};
+function buffer(qual){
+  var ctx = audioOn(); if(!ctx) return null;
+  if(bufs[qual]) return bufs[qual];
+  var r = RECEITAS[qual]; if(!r) return null;
+  try{
+    var sr = ctx.sampleRate, n = Math.floor(r.dur*sr);
+    var b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0);
+    r.notas.forEach(function(nt){
+      var i0=Math.floor(nt.t*sr), i1=Math.floor((nt.t+nt.d)*sr);
+      var at=Math.floor(0.008*sr), re=Math.floor(0.06*sr), len=i1-i0;
+      for(var i=i0; i<i1 && i<n; i++){
+        var k=i-i0, env=1;
+        if(k<at) env=k/at; else if(k>len-re) env=Math.max(0,(len-k)/re);
+        d[i] += Math.sin(2*Math.PI*nt.f*(k/sr))*env*r.vol;
+      }
+    });
+    bufs[qual]=b; return b;
+  }catch(e){ return null; }
+}
+function ringAgendar(id, quando, qual, limite){
+  var ctx = audioOn(); if(!ctx) return;
+  var b = buffer(qual); if(!b) return;
+  ringParar(id);
+  try{
+    var ini = Math.max(ctx.currentTime, quando);
+    var src = ctx.createBufferSource(); src.buffer=b; src.loop=true;
+    var g = ctx.createGain(); g.gain.value=1;
+    src.connect(g); g.connect(ctx.destination);
+    src.start(ini); src.stop(ini + (limite||180));
+    rings[id] = {src:src, g:g};
+  }catch(e){}
+}
+function ringParar(id){
+  var r = rings[id]; if(!r) return;
+  delete rings[id];
+  try{
+    var agora = actx.currentTime;
+    r.g.gain.cancelScheduledValues(agora);
+    r.g.gain.setValueAtTime(r.g.gain.value, agora);
+    r.g.gain.linearRampToValueAtTime(0.0001, agora+0.09);
+  }catch(e){}
+  try{ r.src.stop(actx.currentTime+0.12); }catch(e){ try{ r.src.stop(); }catch(e2){} }
+}
+function ringPararTudo(){ Object.keys(rings).forEach(ringParar); }
+function temSom(){ return !!(t.soando || testeSoando); }
+function pararSom(){
+  if(t.soando){ ringParar(t.soando); t.soando=null; }
+  if(testeSoando){ ringParar("teste"); testeSoando=false; }
+  salvarTimer(); render();
+}
+function manterAcordado(lig){
+  var ctx = audioOn(); if(!ctx) return;
+  try{
+    if(lig && !keepalive){
+      var o=ctx.createOscillator(), g=ctx.createGain();
+      o.type="sine"; o.frequency.value=60; g.gain.value=0.0016;
+      o.connect(g); g.connect(ctx.destination); o.start();
+      keepalive={o:o,g:g};
+    } else if(!lig && keepalive){
+      try{keepalive.o.stop();}catch(e){}
+      keepalive=null;
+    }
+  }catch(e){}
+}
+function reagendar(){
+  ringPararTudo(); limparAvulsos();
+  if(!t.ativo || t.emPausa || !t.desde) return;
+  var ctx = audioOn(); if(!ctx) return;
+  var f = foco();
+  [cfg.p1, cfg.p2].forEach(function(p){
+    if(t.feitas.indexOf(p)<0 && p>0 && p<cfg.cicloMin && p*60 > f)
+      ringAgendar("p"+p, ctx.currentTime + (p*60-f), "pausa", Math.max(150, cfg.pausaSeg+120));
+  });
+  if(!t.avisouFim && cfg.cicloMin*60 > f)
+    ringAgendar("fim", ctx.currentTime + (cfg.cicloMin*60-f), "fim", 300);
+}
+
+/* ---------- alarme pelo Relógio do iPhone (app Atalhos) ----------
+   Um app da Tela de Início não roda com a tela bloqueada. O Relógio roda. O
+   atalho recebe um número de segundos e liga um timer do Relógio com ele; o
+   app chama o atalho a cada trecho do ciclo, sempre para o PRÓXIMO aviso.
+   O iOS 16 não tem ação para cancelar timer pelo Atalhos, então quando o
+   plano muda (pausa, descarte) o app só avisa para cancelar no Relógio. */
+var LS_REL = "ciclos.relogio.v1";
+var relogio = {ligado:false, nome:"Ciclos Alarme", ate:0, alvo:""};
+function carregarRelogio(){
+  try{ Object.assign(relogio, JSON.parse(lsGet(LS_REL) || "{}")); }catch(e){}
+  if(!relogio.nome) relogio.nome = "Ciclos Alarme";
+}
+function salvarRelogio(){ lsSet(LS_REL, JSON.stringify(relogio)); }
+function usaRelogio(){ return !!relogio.ligado; }
+function pendentes(){
+  return [cfg.p1, cfg.p2].filter(function(p){ return p>0 && p<cfg.cicloMin && t.feitas.indexOf(p)<0; })
+                         .sort(function(a,b){ return a-b; });
+}
+/* Próximo aviso do ciclo, em hora de relógio, supondo que os intervalos
+   acontecem na hora certa (é o que o cronômetro supõe ao voltar do bloqueio). */
+function proximoEvento(){
+  if(!t.ativo) return null;
+  var base;
+  if(t.emPausa) base = t.pausaAte;
+  else if(t.desde) base = t.desde;
+  else return null;
+  var ps = pendentes();
+  if(ps.length) return {quando: base + (ps[0]*60 - t.acum)*1000, nome:"intervalo dos "+ps[0]+" min"};
+  if(!t.avisouFim) return {quando: base + (cfg.cicloMin*60 - t.acum)*1000, nome:"fim do ciclo"};
+  if(t.soneca && !t.emPausa) return {quando: t.soneca, nome:"fim do adiamento"};
+  return null;
+}
+function hhmmss(ts){ var d=new Date(ts); return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds()); }
+/* (os testes trocam window.__ciclosAbrirUrl para ver o endereço chamado) */
+function rodarAtalho(seg){
+  var url = "shortcuts://run-shortcut?name="+encodeURIComponent(relogio.nome)+
+            "&input=text&text="+Math.round(seg);
+  if(typeof window.__ciclosAbrirUrl === "function") window.__ciclosAbrirUrl(url);
+  else location.href = url;
+}
+function armarRelogio(){
+  var ev = proximoEvento(); if(!ev) return false;
+  var seg = Math.round((ev.quando - Date.now())/1000);
+  if(seg < 10) return false;
+  relogio.ate = Date.now() + seg*1000; relogio.alvo = ev.nome; salvarRelogio();
+  rodarAtalho(seg);
+  return true;
+}
+function relogioCorrendo(){ return relogio.ate > Date.now(); }
+/* Arma sozinho depois de um toque (iniciar, retomar, voltar da pausa, adiar),
+   só se não houver timer correndo: o iOS 16 só tem um timer por vez. */
+function autoArmar(){
+  if(!usaRelogio() || relogioCorrendo()) { pintarRelogio(); return; }
+  armarRelogio(); pintarRelogio();
+}
+var relChave = "";
+function pintarRelogio(){
+  var box = el("relIos"), agora = Date.now();
+  if(!usaRelogio()){ if(!box.hidden){ box.hidden = true; relChave = ""; } return; }
+  var ev = proximoEvento(), corre = relogio.ate > agora;
+  var estado, txt = "", bt = null, cls = "";
+  if(!t.ativo){
+    if(corre){ estado = "sobra"; cls = "alerta";
+      txt = "Ainda há um timer no Relógio que toca às "+hhmmss(relogio.ate)+" ("+relogio.alvo+"). Se o ciclo acabou, cancele-o no app Relógio.";
+      bt = ["Já cancelei", function(){ relogio.ate = 0; salvarRelogio(); pintarRelogio(); }];
+    } else estado = "nada";
+  } else if(!ev){
+    if(corre){ estado = "pausado"; cls = "alerta";
+      txt = "Ciclo pausado: cancele no app Relógio o timer das "+hhmmss(relogio.ate)+", para ele não tocar à toa.";
+      bt = ["Já cancelei", function(){ relogio.ate = 0; salvarRelogio(); pintarRelogio(); }];
+    } else estado = "nada";
+  } else if(ev.quando - agora < 12000){
+    estado = "agora";
+  } else if(corre && Math.abs(relogio.ate - ev.quando) <= 20000){
+    estado = "ok:"+relogio.ate; cls = "ok";
+    txt = "Relógio armado: toca às "+hhmmss(relogio.ate)+" — "+ev.nome+". Pode bloquear a tela.";
+  } else if(corre){
+    estado = "torto:"+relogio.ate+":"+ev.quando; cls = "alerta";
+    txt = "O timer do Relógio (às "+hhmmss(relogio.ate)+") não bate mais com o ciclo. Cancele-o no app Relógio e arme de novo para as "+hhmmss(ev.quando)+".";
+    bt = ["Cancelei — armar de novo", function(){ relogio.ate = 0; armarRelogio(); pintarRelogio(); }];
+  } else {
+    estado = "armar:"+ev.quando; cls = "alerta";
+    txt = "Próximo aviso: "+ev.nome+", às "+hhmmss(ev.quando)+". Arme o Relógio para ele tocar com a tela bloqueada.";
+    bt = ["Armar alarme", function(){ armarRelogio(); pintarRelogio(); }];
+  }
+  if(estado === relChave) return;
+  relChave = estado;
+  if(estado === "nada" || estado === "agora"){ box.hidden = true; return; }
+  box.hidden = false; box.className = "rel-ios"+(cls?" "+cls:""); box.innerHTML = "";
+  var sp = document.createElement("span"); sp.textContent = txt; box.appendChild(sp);
+  if(bt){
+    var b = document.createElement("button"); b.className = "btn"+(cls==="alerta"?" pri":"");
+    b.textContent = bt[0]; b.onclick = bt[1]; box.appendChild(b);
+  }
+}
+
+/* ---------- avisos do sistema ---------- */
+/* No iPhone não existe "new Notification": o aviso sai pelo service worker. */
+function notificarSw(titulo, op){
+  try{
+    if(!navigator.serviceWorker) return false;
+    navigator.serviceWorker.ready.then(function(r){ return r.showNotification(titulo, op); }).catch(function(){});
+    return true;
+  }catch(e){ return false; }
+}
+function notificar(titulo, corpo){
+  var op = {body:corpo, tag:"ciclo-estudo", renotify:true,
+            requireInteraction:true, icon:"icon-192.png", badge:"icon-192.png"};
+  try{
+    if(typeof Notification==="undefined") return false;
+    if(Notification.permission!=="granted") return false;
+    if(EH_IOS) return notificarSw(titulo, op);
+    var n = new Notification(titulo, op);
+    n.onclick = function(){ try{ window.focus(); n.close(); }catch(e){} };
+    return true;
+  }catch(e){ return notificarSw(titulo, op); }
+}
+/* ---------- tela acesa ---------- */
+var wl=null, videoAcordado=null;
+/* No iPhone com iOS 16, a trava de tela do navegador não funciona no app da
+   Tela de Início. O recurso clássico é um vídeo mudo e minúsculo em laço:
+   enquanto ele toca, o iPhone não bloqueia a tela sozinho. */
+var VIDEO_MUDO = "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAYObW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAC7gAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAnd0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAC7gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAu4AAAAAAABAAAAAAHvbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAwABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmm1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVpzdGJsAAAAtnN0c2QAAAAAAAAAAQAAAKZhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALGF2Y0MBQsAK/+EAFWdCwAraewEQAAADABAAAAMAQPEiagEABGjOD8gAAAAQcGFzcAAAAAEAAAABAAAAFGJ0cnQAAAAAAAAHKgAAByoAAAAYc3R0cwAAAAAAAAABAAAABgAAIAAAAAAUc3RzcwAAAAAAAAABAAAAAQAAABxzdHNjAAAAAAAAAAEAAAABAAAAAQAAAAEAAAAsc3RzegAAAAAAAAAAAAAABgAAAoMAAAAJAAAACQAAAAkAAAAJAAAACQAAAChzdGNvAAAAAAAAAAYAAAZTAAAI5gAACP8AAAkYAAAJMQAACUoAAALBdHJhawAAAFx0a2hkAAAAAwAAAAAAAAAAAAAAAgAAAAAAAAu4AAAAAAAAAAAAAAABAQAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAJGVkdHMAAAAcZWxzdAAAAAAAAAABAAALuAAABAAAAQAAAAACOW1kaWEAAAAgbWRoZAAAAAAAAAAAAAAAAAAAH0AAAGHAVcQAAAAAAC1oZGxyAAAAAAAAAABzb3VuAAAAAAAAAAAAAAAAU291bmRIYW5kbGVyAAAAAeRtaW5mAAAAEHNtaGQAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAahzdGJsAAAAfnN0c2QAAAAAAAAAAQAAAG5tcDRhAAAAAAAAAAEAAAAAAAAAAAABABAAAAAAH0AAAAAAADZlc2RzAAAAAAOAgIAlAAIABICAgBdAFQAAAAAAH0AAAAErBYCAgAUViFblAAaAgIABAgAAABRidHJ0AAAAAAAAH0AAAAErAAAAIHN0dHMAAAAAAAAAAgAAABgAAAQAAAAAAQAAAcAAAAAoc3RzYwAAAAAAAAACAAAAAQAAAAEAAAABAAAAAgAAAAQAAAABAAAAeHN0c3oAAAAAAAAAAAAAABkAAAAVAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAALHN0Y28AAAAAAAAABwAABj4AAAjWAAAI7wAACQgAAAkhAAAJOgAACVMAAAAac2dwZAEAAAByb2xsAAAAAgAAAAH//wAAABxzYmdwAAAAAHJvbGwAAAABAAAAGQAAAAEAAABidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjYwLjE2LjEwMAAAAAhmcmVlAAADLW1kYXTeAgBMYXZjNjAuMzEuMTAyAAIwQA4AAAJtBgX//2ncRem95tlIt5Ys2CDZI+7veDI2NCAtIGNvcmUgMTY0IHIzMTA4IDMxZTE5ZjkgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDIzIC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MCByZWY9MSBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgxOjB4MSBtZT1oZXggc3VibWU9MiBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0wIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MCA4eDhkY3Q9MCBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0wIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTAgd2VpZ2h0cD0wIGtleWludD0yNTAga2V5aW50X21pbj0yIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9MTAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4wMACAAAAADmWIhAV///8PRQABQt+AARggBwEYIAcBGCAHARggBwAAAAVBmiAV9QEYIAcBGCAHARggBwEYIAcAAAAFQZpAFPUBGCAHARggBwEYIAcBGCAHAAAABUGaYBT1ARggBwEYIAcBGCAHARggBwAAAAVBmoAU9QEYIAcBGCAHARggBwEYIAcAAAAFQZqgEvUBGCAHARggBwEYIAcBGCAH";
+function videoAcesa(lig){
+  if(!EH_IOS) return;
+  try{
+    if(!videoAcordado){
+      var v = document.createElement("video");
+      v.setAttribute("playsinline", ""); v.setAttribute("muted", ""); v.setAttribute("aria-hidden", "true");
+      v.muted = true; v.loop = true; v.src = VIDEO_MUDO;
+      v.style.cssText = "position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none";
+      v.addEventListener("timeupdate", function(){ if(v.currentTime > 2.4) v.currentTime = 0.1; });
+      document.body.appendChild(v); videoAcordado = v;
+    }
+    if(lig){ var p = videoAcordado.play(); if(p && p.catch) p.catch(function(){}); }
+    else videoAcordado.pause();
+  }catch(e){}
+}
+async function telaAcesa(lig){
+  videoAcesa(lig);
+  try{
+    if(lig && !wl && navigator.wakeLock){
+      wl = await navigator.wakeLock.request("screen");
+      wl.addEventListener("release", function(){ wl = null; });
+    }
+    else if(!lig && wl){ await wl.release(); wl=null; }
+  }catch(e){ wl=null; }
+}
+
+/* ---------- cronômetro ---------- */
+function foco(){
+  return t.acum + (t.desde ? (Date.now()-t.desde)/1000 : 0);
+}
+function salvarTimer(){
+  if(t.ativo) lsSet(LS_TIMER, JSON.stringify(t));
+  else lsSet(LS_TIMER, "");
+}
+function restaurarTimer(){
+  var raw = lsGet(LS_TIMER); if(!raw) return;
+  try{
+    var o = JSON.parse(raw);
+    if(o && o.ativo){
+      t = Object.assign(t, o);
+      t.soando=null; t.soneca=null;
+      if(!EH_IOS && t.emPausa && t.pausaAte && Date.now() >= t.pausaAte){ t.emPausa=false; t.pausaAte=null; t.desde=Date.now(); }
+    }
+  }catch(e){}
+}
+function iniciar(){
+  audioOn();
+  t.ativo=true; t.acum=0; t.desde=Date.now(); t.iniciado=Date.now();
+  t.feitas=[]; t.emPausa=false; t.pausaAte=null; t.avisouFim=false;
+  t.soando=null; t.soneca=null;
+  t.extra = el("chkExtra").checked;
+  manterAcordado(true); telaAcesa(true); reagendar(); salvarTimer(); render();
+  autoArmar();
+}
+function pausarManual(){
+  if(!t.ativo || t.emPausa || !t.desde) return;
+  t.acum = foco(); t.desde=null; t.soando=null; t.soneca=null;
+  ringPararTudo(); limparAvulsos(); manterAcordado(false); telaAcesa(false); salvarTimer(); render();
+}
+function retomar(){
+  if(!t.ativo || t.desde) return;
+  t.emPausa=false; t.pausaAte=null; t.pausaDe=null; t.desde=Date.now();
+  manterAcordado(true); telaAcesa(true); reagendar(); salvarTimer(); render();
+  autoArmar();
+}
+function abrirPausa(p){
+  t.acum = p*60; t.desde=null; t.feitas.push(p);
+  t.emPausa=true; t.pausaDe=p; t.pausaAte = Date.now() + cfg.pausaSeg*1000;
+  t.soando = "p"+p;
+  Object.keys(rings).forEach(function(id){ if(id!==t.soando) ringParar(id); });
+  var ctx = audioOn(); if(ctx) toque(ctx.currentTime + cfg.pausaSeg, PAD_VOLTA);
+  notificar("Intervalo de "+cfg.pausaSeg+" s — minuto "+p,
+            "Olhe para um ponto distante e pisque devagar. O cronômetro está parado.");
+  salvarTimer(); render();
+}
+function fecharPausa(){
+  if(t.soando){ ringParar(t.soando); t.soando=null; }
+  if(t.emPausa) notificar("Intervalo encerrado", "De volta ao ciclo de "+nomeTipo(t.tipo)+".");
+  t.emPausa=false; t.pausaAte=null; t.pausaDe=null; t.desde=Date.now();
+  manterAcordado(true); reagendar(); salvarTimer(); render();
+}
+function adiar(min){
+  if(t.soando){ ringParar(t.soando); t.soando=null; }
+  var ctx = audioOn();
+  if(ctx) ringAgendar("fim", ctx.currentTime + min*60, "fim", 300);
+  t.soneca = Date.now() + min*60000;
+  salvarTimer(); render();
+  autoArmar();
+}
+/* "Voltar agora" é um toque: dá para chamar o atalho. O fim automático da
+   pausa não é, e aí o cartão mostra o botão de armar. */
+function voltarAgora(){ fecharPausa(); autoArmar(); }
+function encerrar(){
+  if(!t.ativo) return;
+  var seg = Math.round(foco());
+  var ds = hoje(), d = garantirDia(ds);
+  d.ciclos.push({id:novoId(), tipo:t.tipo, seg:seg, alvo:cfg.cicloMin*60,
+                 extra:!!t.extra, inicio:t.iniciado||null, fim:Date.now()});
+  d.atualizadoEm = Date.now();
+  marcarSujo("dia", ds); salvarLocal(); empurrarDb();
+  zerar();
+  var pr = proximoSugerido();
+  if(pr) t.tipo = pr;
+  render();
+}
+function descartar(){ zerar(); render(); }
+function zerar(){
+  ringPararTudo(); limparAvulsos(); manterAcordado(false); telaAcesa(false);
+  t.ativo=false; t.acum=0; t.desde=null; t.iniciado=null;
+  t.feitas=[]; t.emPausa=false; t.pausaAte=null; t.pausaDe=null; t.avisouFim=false; t.extra=false;
+  t.soando=null; t.soneca=null;
+  el("chkExtra").checked=false;
+  salvarTimer();
+}
+/* Ao voltar do bloqueio, o iPhone descongela o app de uma vez. Sem isto, o
+   cronômetro pararia no primeiro intervalo perdido e jogaria fora o tempo
+   estudado depois dele. Aqui ele refaz o caminho como se cada intervalo
+   tivesse acontecido na hora — é o que o alarme do Relógio avisou. Só no
+   iPhone: no PC o app não congela, e reabrir depois de horas não deve virar
+   horas de estudo. */
+var ATRASO_TIQUE = 5000;
+function alcancar(){
+  if(!EH_IOS || !t.ativo) return false;
+  var agora = Date.now(), mudou = false;
+  for(var volta = 0; volta < 8; volta++){
+    if(t.emPausa){
+      if(!(t.pausaAte && agora - t.pausaAte > ATRASO_TIQUE)) break;
+      if(t.soando){ ringParar(t.soando); t.soando = null; }
+      t.desde = t.pausaAte; t.emPausa = false; t.pausaAte = null; t.pausaDe = null;
+      mudou = true; continue;
+    }
+    if(!t.desde) break;
+    var ps = pendentes();
+    if(ps.length){
+      var p = ps[0], quando = t.desde + (p*60 - t.acum)*1000;
+      if(agora - quando <= ATRASO_TIQUE) break;
+      t.feitas.push(p); t.acum = p*60; t.desde = null;
+      t.emPausa = true; t.pausaDe = p; t.pausaAte = quando + cfg.pausaSeg*1000;
+      t.soando = null;
+      mudou = true; continue;
+    }
+    if(!t.avisouFim){
+      var qf = t.desde + (cfg.cicloMin*60 - t.acum)*1000;
+      if(agora - qf > ATRASO_TIQUE){
+        t.avisouFim = true; t.soando = null; mudou = true;
+      }
+    }
+    break;
+  }
+  if(mudou){ reagendar(); salvarTimer(); render(); }
+  return mudou;
+}
+function tique(){
+  alcancar();
+  if(t.ativo){
+    if(t.emPausa){
+      if(Date.now() >= t.pausaAte) fecharPausa();
+    } else if(t.desde){
+      var f = foco();
+      var ps = [cfg.p1, cfg.p2].filter(function(p){ return p>0 && p<cfg.cicloMin; }).sort(function(a,b){return a-b;});
+      for(var i=0;i<ps.length;i++){
+        if(t.feitas.indexOf(ps[i])<0 && f >= ps[i]*60){ abrirPausa(ps[i]); return; }
+      }
+      if(!t.avisouFim && f >= cfg.cicloMin*60){
+        t.avisouFim=true; t.soando="fim";
+        notificar("Ciclo de "+cfg.cicloMin+" min concluído",
+                  "A partir daqui o tempo vira saldo. Encerre o ciclo quando parar.");
+        salvarTimer();
+      }
+      if(t.soneca && Date.now() >= t.soneca){ t.soneca=null; t.soando="fim"; salvarTimer(); }
+    }
+  }
+  pintarTimer();
+  pintarRelogio();
+}
+
+/* ---------- render ---------- */
+function pintarTimer(){
+  var f = t.ativo ? foco() : 0;
+  var alvo = cfg.cicloMin*60;
+  var C1 = 2*Math.PI*112, C2 = 2*Math.PI*126;
+  var fr = Math.min(1, f/alvo);
+  el("arco").setAttribute("stroke-dashoffset", String(C1*(1-fr)));
+  el("arco").setAttribute("stroke-dasharray", String(C1));
+  var over = Math.max(0, f-alvo);
+  var fr2 = Math.min(1, over/600);
+  el("arcoExtra").setAttribute("stroke-dasharray", String(C2));
+  el("arcoExtra").setAttribute("stroke-dashoffset", String(C2*(1-fr2)));
+  el("arcoExtra").style.opacity = over>0 ? "1" : "0";
+
+  var est = el("estado"), sub = el("sub"), rel = el("relogio");
+  if(!t.ativo){
+    est.className="estado"; est.textContent="pronto";
+    rel.textContent = mmss(alvo);
+    sub.textContent = "ciclo de "+cfg.cicloMin+" min · intervalos aos "+cfg.p1+" e "+cfg.p2;
+    el("arco").setAttribute("stroke","var(--line-forte)");
+  } else if(t.emPausa){
+    est.className="estado descanso"; est.textContent="intervalo do minuto "+t.pausaDe;
+    rel.textContent = mmss(f);
+    sub.textContent = "cronômetro parado";
+    el("arco").setAttribute("stroke","var(--pausa)");
+  } else if(!t.desde){
+    est.className="estado pausado"; est.textContent="pausado";
+    rel.textContent = mmss(f);
+    sub.textContent = "faltam "+mmss(Math.max(0,alvo-f));
+    el("arco").setAttribute("stroke","var(--muted)");
+  } else if(over>0){
+    est.className="estado excedente"; est.textContent="excedente";
+    rel.textContent = mmss(f);
+    sub.innerHTML = "<strong>+"+mmss(over)+"</strong> além dos "+cfg.cicloMin+" min — vira saldo";
+    el("arco").setAttribute("stroke","var(--ok)");
+  } else {
+    est.className="estado rodando"; est.textContent=nomeTipo(t.tipo);
+    rel.textContent = mmss(f);
+    sub.textContent = "faltam "+mmss(alvo-f)+(t.extra?" · ciclo extra":"");
+    el("arco").setAttribute("stroke","var(--foco)");
+  }
+
+  var ov = el("overlay");
+  var soa = temSom() ? "s" : "m";
+  var modo = "nenhum";
+  if(t.ativo && t.emPausa) modo = "pausa|"+t.pausaDe+"|"+soa;
+  else if(t.ativo && t.avisouFim && over>0 && !ov.dataset.fechadoFim) modo = "fim|"+soa;
+
+  if(ov.dataset.modo!==modo){ ov.dataset.modo=modo; montarAlarme(modo); }
+  if(modo.indexOf("pausa")===0) el("mBig").textContent = Math.max(0, Math.ceil((t.pausaAte-Date.now())/1000));
+  else if(modo.indexOf("fim")===0) el("mBig").textContent = mmss(f);
+  if(modo==="nenhum" && !(t.ativo && t.avisouFim && over>0)) delete ov.dataset.fechadoFim;
+
+  el("barraSom").hidden = !(temSom() && ov.hidden);
+  el("btnTeste").textContent = testeSoando ? "Parar teste" : "Testar alarme";
+}
+
+function montarAlarme(modo){
+  var ov=el("overlay"), md=el("modal"), ac=el("mAcoes");
+  if(modo==="nenhum"){ ov.hidden=true; return; }
+  ov.hidden=false; ac.innerHTML="";
+  var soa = modo.slice(-1)==="s";
+  el("mSino").className = "sino"+(soa?" toca":"");
+  function bt(txt, cls, fn){
+    var b=document.createElement("button"); b.className="btn "+cls; b.textContent=txt; b.onclick=fn;
+    ac.appendChild(b);
+  }
+  if(modo.indexOf("pausa")===0){
+    md.className="alarme pausa";
+    el("mTit").textContent="intervalo · minuto "+t.pausaDe;
+    el("mMsg").textContent="Olhe para um ponto distante";
+    el("mDet").textContent="Pisque devagar algumas vezes. O cronômetro está parado e volta sozinho.";
+    if(soa) bt("Parar som","parar",pararSom);
+    bt("Voltar agora", soa?"":"pri", voltarAgora);
+  } else {
+    md.className="alarme fim";
+    el("mTit").textContent="ciclo concluído · "+curtoTipo(t.tipo);
+    el("mMsg").textContent="Os "+cfg.cicloMin+" min fecharam";
+    el("mDet").textContent="Daqui em diante o tempo conta como saldo. Encerre quando parar de verdade.";
+    if(soa){
+      bt("Parar som","parar",pararSom);
+      bt("Adiar 5 min","sutil",function(){ adiar(5); });
+    }
+    bt("Encerrar ciclo","fim",function(){ delete ov.dataset.fechadoFim; encerrar(); });
+    bt("Continuar (vira saldo)","sutil",function(){
+      if(t.soando){ ringParar(t.soando); t.soando=null; }
+      ov.dataset.fechadoFim="1"; ov.dataset.modo="nenhum"; ov.hidden=true; render();
+    });
+  }
+}
+
+function pintarTipos(){
+  var box = el("tipos"); box.innerHTML="";
+  listaTipos().forEach(function(x){
+    var b=document.createElement("button");
+    b.className="tipo"; b.type="button";
+    b.setAttribute("aria-pressed", String(t.tipo===x.id));
+    b.textContent = x.nome;
+    b.disabled = t.ativo;
+    b.onclick=function(){ if(t.ativo) return; t.tipo=x.id; pintarTipos(); pintarTimer(); };
+    box.appendChild(b);
+  });
+}
+
+function pintarCtrl(){
+  var box = el("ctrl"); box.innerHTML="";
+  function add(txt, cls, fn){
+    var b=document.createElement("button"); b.className="btn "+cls; b.textContent=txt; b.onclick=fn;
+    box.appendChild(b); return b;
+  }
+  if(!t.ativo){ add("Iniciar ciclo","pri",iniciar); return; }
+  if(t.emPausa){ add("Voltar agora","pri",voltarAgora); return; }
+  if(!t.desde) add("Retomar","pri",retomar);
+  else add("Pausar","",pausarManual);
+  add("Encerrar ciclo","fim",encerrar);
+  var bd = add("Descartar","sutil",function(){
+    if(bd.dataset.c){ descartar(); }
+    else { bd.dataset.c="1"; bd.className="btn perigo"; bd.textContent="Confirmar descarte";
+           setTimeout(function(){ if(bd.dataset.c){ delete bd.dataset.c; pintarCtrl(); } },4000); }
+  });
+}
+
+function gravarDia(ds){
+  var d = dias[ds];
+  if(d) d.atualizadoEm = Date.now();
+  marcarSujo("dia", ds); salvarLocal(); empurrarDb();
+}
+function apagarCiclo(ds, id){
+  var d = dias[ds]; if(!d) return;
+  d.ciclos = d.ciclos.filter(function(c){ return c.id !== id; });
+  /* lápide: o outro aparelho ainda tem esse ciclo e não pode devolvê-lo */
+  d.apagados = d.apagados || {}; d.apagados[id] = Date.now();
+  gravarDia(ds);
+  if(!t.ativo){ var p=proximoSugerido(); if(p) t.tipo=p; }
+  render();
+}
+/* O tempo avulso é tempo corrido, não uma sessão. Ele é somado ao que já foi
+   lançado naquele bloco no mesmo dia e o total vira ciclos cheios + uma sobra. */
+function lancarAvulso(){
+  var ds = diaVista, min = parseInt(el("avMin").value,10), tipo = el("avTipo").value;
+  var aviso = el("avAviso");
+  if(!(min>0)){ aviso.textContent = "Informe quantos minutos você estudou."; return; }
+  var d = garantirDia(ds), alvo = cfg.cicloMin*60;
+  var cheiosAntes = resumoDia(ds).cheios;
+  d.ciclos.push({id:novoId(), tipo:tipo, seg:min*60, alvo:alvo, extra:false, manual:true, fim:Date.now()});
+  gravarDia(ds);
+  if(!t.ativo){ var p=proximoSugerido(); if(p) t.tipo=p; }
+  render();
+
+  var ganhou = resumoDia(ds).cheios - cheiosAntes, solto = 0;
+  (dias[ds].ciclos||[]).forEach(function(c){
+    if(c.tipo===tipo && c.seg < (c.alvo||alvo)) solto += c.seg;
+  });
+  var cab = min+" min de "+nomeTipo(tipo)+" em "+ds.slice(8)+"/"+ds.slice(5,7)+" — ";
+  if(ganhou > 0)
+    aviso.textContent = cab + (ganhou===1 ? "fechou 1 ciclo cheio" : "fecharam "+ganhou+" ciclos cheios") +
+      (solto>0 ? " e sobraram "+Math.round(solto/60)+" min, guardados para o próximo." : ", sem sobra.");
+  else
+    aviso.textContent = cab + "ainda não fecha um ciclo: há "+Math.round(solto/60)+
+      " min guardados nesse bloco hoje, que viram ciclo assim que chegarem a "+cfg.cicloMin+".";
+}
+
+/* Ajustes do dia: folga tranca o dia (sai da conta do saldo) e a meta pode ser
+   reduzida para um dia específico, sem mexer no padrão da semana. */
+function ajustarDia(mudanca){
+  var ds = diaVista, d = garantirDia(ds);
+  if(mudanca === "folga")      d.folga = !d.folga;
+  else if(mudanca === "padrao"){ d.folga = false; d.meta = metaPara(ds); }
+  else {
+    var v = parseInt(el("metaDiaVal").value, 10);
+    if(isNaN(v) || v < 0) return;
+    d.meta = Math.min(20, v); d.folga = false;
+  }
+  d.ajusteEm = Date.now();
+  gravarDia(ds);
+  render();
+}
+
+function pintarDia(){
+  var ds = diaVista, d = dias[ds], r = resumoDia(ds), ehHoje = (ds===hoje());
+  var dt = daChave(ds);
+  el("dataHoje").textContent = DIAS_SEM[daChave(hoje()).getDay()]+", "+daChave(hoje()).getDate()+" de "+MESES[daChave(hoje()).getMonth()];
+  el("diaTit").textContent = ehHoje ? "Hoje" : (DIAS_SEM[dt.getDay()]+", "+dt.getDate()+" de "+MESES[dt.getMonth()]);
+  el("diaData").value = ds;
+  el("btnVoltarHoje").hidden = ehHoje;
+  el("metaHoje").innerHTML = "";
+  if(r.folga){
+    var sl=document.createElement("span"); sl.className="selo-folga"; sl.textContent="folga";
+    el("metaHoje").appendChild(sl);
+  } else el("metaHoje").textContent = "meta "+r.meta+" ciclos";
+
+  var sel = el("avTipo"), antes = sel.value;
+  sel.innerHTML = "";
+  listaTipos().forEach(function(x){
+    var o=document.createElement("option"); o.value=x.id; o.textContent=x.nome; sel.appendChild(o);
+  });
+  sel.value = (antes && temTipo(antes)) ? antes : (proximoSugerido() || listaTipos()[0].id);
+
+  var m = el("metasHoje"); m.innerHTML="";
+  function box(v,k,cls){
+    var e=document.createElement("div"); e.className="meta-box "+(cls||"");
+    e.innerHTML='<div class="v num"></div><div class="k"></div>';
+    e.querySelector(".v").textContent=v; e.querySelector(".k").textContent=k;
+    m.appendChild(e);
+  }
+  box(r.folga ? String(r.cheios) : (r.cheios+" / "+r.meta), "ciclos cheios",
+      r.folga ? "" : (r.bateu?"destaque":""));
+  box(r.folga ? hm(r.seg) : (hm(r.seg)+" / "+hm(r.metaSeg)), "tempo do dia",
+      r.folga ? "" : (r.bateu?"destaque":""));
+  var cd = contribDia(ds);
+  box(comSinal(cd.liquido), ehHoje&&cd.liquido<=0 ? "saldo do dia (parcial)" : "saldo do dia",
+      cd.liquido<0 ? "neg" : "saldo");
+  box(r.sobra>0 ? mmss(r.sobra) : "—", "sobra para o próximo");
+
+  el("metaDiaVal").value = r.meta;
+  el("metaDiaVal").disabled = !!r.folga;
+  el("btnFolga").setAttribute("aria-pressed", String(!!r.folga));
+  el("btnFolga").textContent = r.folga ? "Destrancar dia" : "Folga";
+  var padrao = metaPara(ds), alterado = r.folga || r.meta !== padrao;
+  el("btnMetaPadrao").hidden = !alterado;
+  el("metaDiaNota").textContent = r.folga
+    ? "Dia trancado: não cobra falta nem gera crédito. O que você estudar continua contando no tempo, na semana, no mês e na rodada."
+    : (r.meta !== padrao
+        ? "Meta ajustada só para este dia. O padrão deste dia da semana é "+padrao+"."
+        : "Padrão deste dia da semana: "+padrao+" ciclos. Baixe o número para um imprevisto, ou use Folga para tirar o dia da conta.");
+
+  pintarColunaCiclos(r);
+
+  var reg = el("registroHoje"); reg.innerHTML="";
+  if(!d || !d.ciclos.length){
+    var prox = proximoSugerido();
+    reg.innerHTML = '<div class="vazio">Nada registrado neste dia.'+
+      (ehHoje && prox ? ' A rodada retoma em '+nomeTipo(prox)+'.' : '')+'</div>';
+    return;
+  }
+  d.ciclos.forEach(function(c,i){
+    var alvo = c.alvo||cfg.cicloMin*60;
+    var e=document.createElement("div"); e.className="linha";
+    e.innerHTML =
+      '<span class="ord num">'+(i+1)+'</span>'+
+      '<span class="nm"></span>'+
+      '<span class="hora"></span>'+
+      (c.extra ? '<span class="tag ex">extra</span>' : '')+
+      (c.seg < alvo ? '<span class="tag pc">parcial</span>' : '')+
+      '<span class="dur">'+mmss(c.seg)+'</span>'+
+      '<button class="lixo" title="Remover este registro" aria-label="Remover">×</button>';
+    e.querySelector(".nm").textContent = nomeTipo(c.tipo);
+    e.querySelector(".hora").textContent = janela(c);
+    e.querySelector(".lixo").onclick = function(){ apagarCiclo(ds, c.id); };
+    reg.appendChild(e);
+  });
+}
+
+/* "07:12 → 08:02" para sessão cronometrada; avulso não tem hora de verdade. */
+function hhmm(ts){ var d=new Date(ts); return pad(d.getHours())+":"+pad(d.getMinutes()); }
+function janela(c){
+  if(c.manual || !c.fim) return "avulso";
+  var ini = c.inicio || (c.fim - c.seg*1000);
+  return hhmm(ini)+" → "+hhmm(c.fim);
+}
+
+/* Coluna da esquerda: o tempo do dia repartido em ciclos, sem olhar de qual
+   bloco veio. É só leitura — não mexe em nenhum registro. */
+function pintarColunaCiclos(r){
+  var box = el("ciclosDia"); box.innerHTML="";
+  var alvo = cfg.cicloMin*60;
+  if(!r.seg){
+    box.innerHTML = '<div class="vazio">Sem tempo no dia.</div>';
+    return;
+  }
+  function linha(i, seg, cheio){
+    var e=document.createElement("div");
+    e.className = "ciclo-l"+(cheio?"":" parcial");
+    e.innerHTML = '<span class="ord num">'+i+'</span>'+
+                  '<span class="bar"><i style="width:'+Math.round(seg/alvo*100)+'%"></i></span>'+
+                  '<span class="t">'+mmss(seg)+'</span>';
+    box.appendChild(e);
+  }
+  for(var i=0;i<r.cheios;i++) linha(i+1, alvo, true);
+  if(r.sobra > 0) linha(r.cheios+1, r.sobra, false);
+}
+
+/* Para a rodada, o ciclo precisa ter dono: o tempo é somado POR BLOCO, na
+   ordem em que aconteceu, e cada vez que um bloco completa 50 min nasce um
+   ciclo daquele bloco. As sobras não atravessam a meia-noite. */
+function ciclosCheios(){
+  var out=[];
+  Object.keys(dias).sort().forEach(function(ds){
+    var acc={}, alvoDia=cfg.cicloMin*60;
+    (dias[ds].ciclos||[]).forEach(function(c){
+      var a = c.alvo || alvoDia, k = c.tipo;
+      acc[k] = (acc[k]||0) + c.seg;
+      while(acc[k] >= a){ acc[k] -= a; out.push({tipo:k, ds:ds}); }
+    });
+  });
+  return out;
+}
+function estadoRodada(){
+  var cap = capsDaSequencia();
+  var zero = function(){ var z={}; Object.keys(cap).forEach(function(k){ z[k]=0; }); return z; };
+  var tot = zero(), n = 1, hj = hoje(), hojeNesta = 0, hojeAntes = 0;
+  ciclosCheios().forEach(function(x){
+    var k = x.tipo; if(!(cap[k] > 0)) return;
+    if(tot[k] >= cap[k]){ n++; tot = zero(); hojeAntes += hojeNesta; hojeNesta = 0; }
+    tot[k]++;
+    if(x.ds === hj) hojeNesta++;
+  });
+  var seq = sequenciaPlano(), usados = {}, faltam = 0;
+  seq.forEach(function(k){
+    usados[k] = (usados[k]||0)+1;
+    if((tot[k]||0) < usados[k]) faltam++;
+  });
+  return {n:n, feitos:tot, faltam:faltam, total:seq.length,
+          hojeNesta:hojeNesta, hojeAntes:hojeAntes};
+}
+function proximoSugerido(){
+  var st = estadoRodada(), seq = sequenciaPlano(), usados = {};
+  for(var i=0;i<seq.length;i++){
+    var k = seq[i]; usados[k] = (usados[k]||0)+1;
+    if((st.feitos[k]||0) < usados[k]) return k;
+  }
+  return seq[0] || null;
+}
+
+function pintarRodada(){
+  var st = estadoRodada(), seq = sequenciaPlano(), usados = {};
+  var prox = proximoSugerido(), marcado = false;
+  var pl = el("plano"); pl.innerHTML="";
+  if(!seq.length){
+    pl.innerHTML='<div class="vazio">Nenhuma etapa definida em Ajustes.</div>';
+    el("rodadaSub").textContent=""; el("rodadaNota").textContent=""; return;
+  }
+  seq.forEach(function(k){
+    usados[k] = (usados[k]||0)+1;
+    var feito = (st.feitos[k]||0) >= usados[k];
+    var ehProx = !feito && !marcado && k===prox;
+    if(ehProx) marcado = true;
+    var e = document.createElement("div");
+    e.className = "slot"+(feito?" feito":(ehProx?" proximo":""));
+    e.innerHTML = '<i class="mk"></i><span></span>';
+    e.querySelector("span").textContent = curtoTipo(k);
+    pl.appendChild(e);
+  });
+  var h = el("rodadaHoje"), tot = st.hojeNesta + st.hojeAntes;
+  if(!tot){
+    h.textContent = "";
+    h.hidden = true;
+  } else {
+    h.hidden = false;
+    var cc = function(k){ return k+(k===1?" ciclo cheio":" ciclos cheios"); };
+    if(!st.hojeAntes)
+      h.textContent = "Hoje: "+cc(tot)+", "+(tot===1?"nesta rodada.":"todos nesta rodada.");
+    else
+      h.textContent = "Hoje: "+cc(tot)+" — "+st.hojeAntes+
+        (st.hojeAntes===1 ? " fechou a rodada "+(st.n-1) : " fecharam rodadas anteriores")+
+        " e "+st.hojeNesta+(st.hojeNesta===1 ? " abriu esta." : " entraram nesta.");
+  }
+  el("rodadaTit").textContent = "Rodada "+st.n;
+  el("rodadaSub").textContent = st.faltam===0
+    ? "rodada fechada"
+    : st.faltam+" de "+st.total+" etapas em aberto";
+  el("rodadaNota").textContent = st.faltam===0
+    ? "Rodada "+st.n+" completa. O próximo ciclo cheio abre a rodada "+(st.n+1)+", começando em "+nomeTipo(prox)+"."
+    : "A rodada não reinicia à meia-noite: você retoma em "+nomeTipo(prox)+" no próximo ciclo cheio, seja hoje ou amanhã.";
+}
+
+function gravarCfg(){
+  cfg.atualizadoEm = Date.now();
+  marcarSujo("cfg","geral"); salvarLocal(); empurrarDb();
+  if(!t.ativo && !temTipo(t.tipo)){ t.tipo = proximoSugerido() || listaTipos()[0].id; }
+  desenharTicks(); render();
+}
+function pintarEditor(){
+  if(el("editorRodada").hidden) return;
+  var seq = cfg.sequencia, lt = listaTipos();
+
+  var L = el("seqLista"); L.innerHTML="";
+  if(!seq.length) L.innerHTML = '<p class="nota">A rodada está vazia. Acrescente etapas abaixo.</p>';
+  seq.forEach(function(k, i){
+    var r=document.createElement("div"); r.className="linha-ed";
+    var ord=document.createElement("span"); ord.className="ord"; ord.textContent=(i+1);
+    var sel=document.createElement("select");
+    lt.forEach(function(x){
+      var o=document.createElement("option"); o.value=x.id; o.textContent=x.nome;
+      if(x.id===k) o.selected=true; sel.appendChild(o);
+    });
+    sel.onchange=function(){ cfg.sequencia[i]=sel.value; gravarCfg(); };
+    r.appendChild(ord); r.appendChild(sel);
+    [["↑",i===0,function(){ var v=seq[i]; seq[i]=seq[i-1]; seq[i-1]=v; gravarCfg(); }],
+     ["↓",i===seq.length-1,function(){ var v=seq[i]; seq[i]=seq[i+1]; seq[i+1]=v; gravarCfg(); }],
+     ["×",false,function(){ seq.splice(i,1); gravarCfg(); }]
+    ].forEach(function(b){
+      var bt=document.createElement("button");
+      bt.className="mini"+(b[0]==="×"?" x":""); bt.textContent=b[0];
+      bt.disabled=b[1]; bt.onclick=b[2];
+      bt.setAttribute("aria-label", b[0]==="×"?"Remover etapa":(b[0]==="↑"?"Subir":"Descer"));
+      r.appendChild(bt);
+    });
+    L.appendChild(r);
+  });
+
+  var T = el("tiposLista"); T.innerHTML="";
+  lt.forEach(function(x, i){
+    var r=document.createElement("div"); r.className="linha-ed";
+    var n=document.createElement("input"); n.type="text"; n.value=x.nome; n.placeholder="Nome do bloco";
+    n.onchange=function(){ x.nome = n.value.trim() || x.id; gravarCfg(); };
+    var c=document.createElement("input"); c.type="text"; c.className="curto"; c.value=x.curto;
+    c.placeholder="curto"; c.maxLength=12;
+    c.onchange=function(){ x.curto = c.value.trim().slice(0,12) || x.nome.slice(0,8); gravarCfg(); };
+    var bt=document.createElement("button"); bt.className="mini x"; bt.textContent="×";
+    bt.setAttribute("aria-label","Remover tipo");
+    bt.onclick=function(){
+      var emUso = 0;
+      Object.keys(dias).forEach(function(ds){
+        (dias[ds].ciclos||[]).forEach(function(cc){ if(cc.tipo===x.id) emUso++; });
+      });
+      if(emUso){
+        el("avAviso").textContent = 'Não dá para remover "'+x.nome+'": há '+emUso+
+          ' ciclo(s) registrado(s) nesse bloco. Renomeie-o, se quiser reaproveitar.';
+        el("avAviso").scrollIntoView({block:"nearest"});
+        return;
+      }
+      if(lt.length<2) return;
+      cfg.tipos.splice(i,1);
+      cfg.sequencia = cfg.sequencia.filter(function(k){ return k!==x.id; });
+      gravarCfg();
+    };
+    r.appendChild(n); r.appendChild(c); r.appendChild(bt);
+    T.appendChild(r);
+  });
+}
+
+function pintarSemana(){
+  var h = daChave(hoje());
+  var ini = new Date(h); ini.setDate(h.getDate()-h.getDay());
+  var box = el("semana"); box.innerHTML="";
+  var totC=0, totS=0, totM=0, maxAlto=0;
+  var linhas=[];
+  for(var i=0;i<7;i++){
+    var d=new Date(ini); d.setDate(ini.getDate()+i);
+    var ds=chave(d), r=resumoDia(ds);
+    totC+=r.cheios; totS+=r.seg; totM+=r.meta;
+    maxAlto=Math.max(maxAlto, r.cheios, r.meta);
+    linhas.push({ds:ds,d:d,r:r});
+  }
+  var escala = Math.max(maxAlto,1)*1.14;
+  linhas.forEach(function(L){
+    var e=document.createElement("div"); e.className="d";
+    var alt = (L.r.cheios/escala*100);
+    var alvo = 100-(L.r.meta/escala*100);
+    e.innerHTML =
+      '<span class="qt num">'+(L.r.cheios||"·")+'</span>'+
+      '<div class="barra'+(L.r.folga?" folga":(L.r.bateu&&L.r.cheios>0?" ok":""))+(L.ds===hoje()?" hoje":"")+'">'+
+        (L.r.folga ? "" : '<div class="alvo" style="top:'+alvo+'%"></div>')+
+        '<div class="fill" style="height:'+alt+'%"></div>'+
+      '</div>'+
+      '<span class="rot">'+DIAS_SEM[L.d.getDay()]+'</span>';
+    box.appendChild(e);
+  });
+  el("semResumo").textContent = totC+" de "+totM+" ciclos · "+hm(totS);
+}
+
+function pintarMes(){
+  var a=mesVista.a, m=mesVista.m;
+  el("mesLbl").textContent = MESES[m]+" "+a;
+  var prim=new Date(a,m,1), ult=new Date(a,m+1,0);
+  var cal=el("cal"); cal.innerHTML="";
+  DIAS_SEM.forEach(function(s){ var e=document.createElement("div"); e.className="hd"; e.textContent=s; cal.appendChild(e); });
+  for(var i=0;i<prim.getDay();i++){ var v=document.createElement("div"); v.className="cel fora"; cal.appendChild(v); }
+  var cheios=0, seg=0, metas=0, fechados=0, dcount=0;
+  var hj=hoje();
+  for(var dia=1; dia<=ult.getDate(); dia++){
+    var d=new Date(a,m,dia), ds=chave(d), r=resumoDia(ds);
+    var futuro = ds>hj;
+    if(!futuro){ cheios+=r.cheios; seg+=r.seg; metas+=r.meta; dcount++; if(r.bateu&&r.cheios>0) fechados++; }
+    var e=document.createElement("div");
+    var cls="cel";
+    if(d.getDay()===0||d.getDay()===6) cls+=" fds";
+    if(r.folga) cls+=" folga";
+    else if(r.bateu && r.cheios>0) cls+=" completo";
+    else if(!r.cheios) cls+=" zero";
+    if(futuro) cls+=" futuro";
+    if(ds===hj) cls+=" hoje";
+    e.className=cls;
+    var pts="";
+    for(var k=0;k<Math.min(r.cheios,8);k++) pts+='<i class="pt"></i>';
+    e.innerHTML='<span class="dn">'+dia+'</span><span class="pts">'+pts+'</span>';
+    e.title = ds+" — "+(r.folga ? "folga, "+r.cheios+" ciclo(s)" : r.cheios+"/"+r.meta+" ciclos")+", "+hm(r.seg);
+    cal.appendChild(e);
+  }
+  var mm=el("metasMes"); mm.innerHTML="";
+  function box(v,k,cls){
+    var e=document.createElement("div"); e.className="meta-box "+(cls||"");
+    e.innerHTML='<div class="v num"></div><div class="k"></div>';
+    e.querySelector(".v").textContent=v; e.querySelector(".k").textContent=k;
+    mm.appendChild(e);
+  }
+  box(cheios+" / "+metas, "ciclos no mês");
+  box(hm(seg), "tempo líquido");
+  box(fechados+" / "+dcount, "dias com meta fechada");
+  var sm = saldoDoMes(a,m);
+  box(comSinal(sm.liquido), "saldo do mês", sm.liquido<0 ? "neg" : "saldo");
+}
+
+function pintarSaldo(){
+  var a=mesVista.a, m=mesVista.m, s=saldoDoMes(a,m);
+  var agora=new Date(), ehMesAtual = (a===agora.getFullYear() && m===agora.getMonth());
+  el("saldoAno").textContent = MESES[m]+" de "+a + (ehMesAtual ? " · em curso" : "");
+
+  var mm=el("metasSaldo"); mm.innerHTML="";
+  function box(v,k,cls){
+    var e=document.createElement("div"); e.className="meta-box "+(cls||"");
+    e.innerHTML='<div class="v num"></div><div class="k"></div>';
+    e.querySelector(".v").textContent=v; e.querySelector(".k").textContent=k;
+    mm.appendChild(e);
+  }
+  box(comSinal(s.liquido), "saldo do mês", s.liquido<0 ? "neg" : "saldo");
+  box(s.credito ? "+"+hm(s.credito) : "—", "crédito gerado");
+  box(s.falta   ? "−"+hm(s.falta)   : "—", "falta acumulada", s.falta ? "neg" : "");
+  box(s.usado   ? "−"+hm(s.usado)   : "—", "já usado");
+
+  el("saldoNota").textContent = s.liquido < 0
+    ? "Você está devendo "+hm(-s.liquido)+" a "+MESES[m]+". O saldo zera na virada do mês: a dívida não passa para dezembro, nem o crédito."
+    : "O saldo fecha e zera a cada mês — nada atravessa a virada. Dias acima da meta e minutos além dos 50 geram crédito; dias abaixo da meta geram falta. O dia de hoje só entra pelo lado positivo, porque ainda não acabou.";
+
+  var L=el("lancamentos"); L.innerHTML="";
+  var doMes = usos.filter(function(u){
+    var t=String(u.data); return +t.slice(0,4)===a && +t.slice(5,7)===m+1;
+  });
+  if(!doMes.length){
+    L.innerHTML='<div class="vazio">Nenhum uso de saldo lançado em '+MESES[m]+'.</div>';
+    return;
+  }
+  doMes.slice(0,12).forEach(function(u){
+    var e=document.createElement("div"); e.className="l";
+    e.innerHTML='<span class="q">−'+hm(u.min*60)+'</span><span class="n"></span><span class="dur num">'+u.data.slice(8)+"/"+u.data.slice(5,7)+'</span>';
+    e.querySelector(".n").textContent = u.nota || "sem motivo anotado";
+    L.appendChild(e);
+  });
+}
+
+function pintarCfg(){
+  el("cfgCiclo").value=cfg.cicloMin; el("cfgP1").value=cfg.p1; el("cfgP2").value=cfg.p2; el("cfgPd").value=cfg.pausaSeg;
+  el("cfgMetaSem").value=cfg.metaSem; el("cfgMetaFds").value=cfg.metaFds;
+  var n=Object.keys(dias).length;
+  el("notaDados").textContent = "Versão "+VERSAO+" · "+n+" dia(s) registrado(s). O histórico guarda dois anos sem apertar nenhum limite; o backup copia tudo em JSON para a área de transferência.";
+}
+
+function render(){
+  pintarTipos(); pintarCtrl(); pintarTimer(); pintarRelogio();
+  pintarRodada(); pintarEditor(); pintarDia(); pintarSemana(); pintarMes(); pintarSaldo(); pintarCfg();
+}
+
+/* ---------- ticks do anel ---------- */
+function desenharTicks(){
+  var g=el("ticks"); g.innerHTML="";
+  [cfg.p1, cfg.p2].forEach(function(p){
+    if(!(p>0 && p<cfg.cicloMin)) return;
+    var ang = (-90 + 360*(p/cfg.cicloMin)) * Math.PI/180;
+    var x1=130+104*Math.cos(ang), y1=130+104*Math.sin(ang);
+    var x2=130+120*Math.cos(ang), y2=130+120*Math.sin(ang);
+    var l=document.createElementNS("http://www.w3.org/2000/svg","line");
+    l.setAttribute("x1",x1); l.setAttribute("y1",y1); l.setAttribute("x2",x2); l.setAttribute("y2",y2);
+    g.appendChild(l);
+  });
+}
+
+/* ---------- eventos ---------- */
+el("btnPararSom").onclick = pararSom;
+el("btnTeste").onclick = function(){
+  if(testeSoando){ ringParar("teste"); testeSoando=false; }
+  else {
+    var ctx=audioOn();
+    if(ctx){ ringAgendar("teste", ctx.currentTime+0.05, "fim", 90); testeSoando=true; }
+    notificar("Teste de alarme", "Se você está vendo isto em outra aba, o aviso do sistema funciona.");
+  }
+  render();
+};
+el("chkExtra").onchange = function(){ if(t.ativo) { t.extra=this.checked; salvarTimer(); pintarTimer(); } };
+el("btnEditarRodada").onclick = function(){
+  var ed = el("editorRodada");
+  ed.hidden = !ed.hidden;
+  this.textContent = ed.hidden ? "Editar" : "Fechar";
+  pintarEditor();
+};
+el("btnAddEtapa").onclick = function(){
+  cfg.sequencia.push(proximoSugerido() || listaTipos()[0].id);
+  gravarCfg();
+};
+el("btnAddTipo").onclick = function(){
+  var id = idLivre("bloco");
+  cfg.tipos.push({id:id, nome:"Novo bloco", curto:"Novo"});
+  gravarCfg();
+  var ins = el("tiposLista").querySelectorAll(".linha-ed input");
+  if(ins.length) ins[ins.length-2].select();
+};
+el("diaData").onchange = function(){
+  if(this.value){ diaVista = this.value; el("avAviso").textContent=""; render(); }
+};
+el("btnVoltarHoje").onclick = function(){ diaVista = hoje(); el("avAviso").textContent=""; render(); };
+el("btnAvulso").onclick = lancarAvulso;
+el("metaDiaVal").onchange = function(){ ajustarDia("meta"); };
+el("btnFolga").onclick = function(){ ajustarDia("folga"); };
+el("btnMetaPadrao").onclick = function(){ ajustarDia("padrao"); };
+el("mesAnt").onclick = function(){ mesVista.m--; if(mesVista.m<0){mesVista.m=11;mesVista.a--;} pintarMes(); pintarSaldo(); };
+el("mesProx").onclick = function(){ mesVista.m++; if(mesVista.m>11){mesVista.m=0;mesVista.a++;} pintarMes(); pintarSaldo(); };
+el("btnUsar").onclick = function(){
+  var min = parseInt(el("usoMin").value,10);
+  if(!(min>0)) return;
+  usos.unshift({id:novoId(), data:hoje(), min:min, nota:el("usoNota").value.trim(), em:Date.now()});
+  marcarSujo("uso", usos[0].id);
+  el("usoNota").value="";
+  var ag=new Date(); mesVista={a:ag.getFullYear(), m:ag.getMonth()};
+  salvarLocal(); empurrarDb(); pintarMes(); pintarSaldo();
+};
+el("btnImportar").onclick = function(){
+  var cx = el("caixaImport");
+  cx.hidden = !cx.hidden;
+  if(!cx.hidden) el("txtImport").focus();
+};
+el("btnImportarOk").onclick = function(){
+  var aviso = el("avisoImport");
+  try{
+    var o = JSON.parse(el("txtImport").value);
+    if(!o || typeof o !== "object" || !o.dias) throw 0;
+    var m = mesclarTudo({cfg:cfg, dias:dias, usos:usos}, o);
+    cfg = normalizaCfg(m.cfg); dias = m.dias; usos = m.usos;
+    salvarLocal(); empurrarDb(); desenharTicks(); render();
+    aviso.textContent = "Importado: "+Object.keys(o.dias).length+" dia(s). Nada foi apagado — os ciclos foram somados aos que já estavam aqui.";
+    el("txtImport").value = "";
+  }catch(e){
+    aviso.textContent = "Não consegui ler esse texto. Cole o JSON inteiro, do { ao } final.";
+  }
+};
+/* Busca uma versão nova dos arquivos e recarrega, sem depender do cache. */
+el("btnAtualizar").onclick = async function(){
+  var b = this, nota = el("notaDados");
+  b.textContent = "Procurando…";
+  try{
+    if("serviceWorker" in navigator){
+      var regs = await navigator.serviceWorker.getRegistrations();
+      for(var i=0;i<regs.length;i++){
+        await regs[i].update();
+        if(regs[i].waiting) regs[i].waiting.postMessage("atualizar");
+      }
+    }
+    var r = await fetch("index.html?v="+Date.now(), {cache:"reload"});
+    var txt = await r.text();
+    var m = txt.match(/var VERSAO = "([^"]+)"/);
+    if(m && m[1] !== VERSAO){
+      nota.textContent = "Versão "+m[1]+" encontrada. Recarregando…";
+      setTimeout(function(){ location.reload(); }, 700);
+    } else {
+      nota.textContent = "Você já está na versão "+VERSAO+" — é a mais nova disponível.";
+      b.textContent = "Procurar atualização";
+    }
+  }catch(e){
+    nota.textContent = /^(localhost|127\.)/.test(location.hostname)
+      ? "Não consegui verificar: rode o atalho desta pasta e tente de novo."
+      : "Não consegui verificar agora — confira a internet e tente de novo.";
+    b.textContent = "Procurar atualização";
+  }
+};
+function pedirNotif(){
+  try{
+    if(typeof Notification==="undefined"){ textoAviso("bloqueado"); return; }
+    Notification.requestPermission().then(function(r){ textoAviso(r==="granted"?"ok":"negado"); });
+  }catch(e){ textoAviso("bloqueado"); }
+}
+function textoAviso(estado){
+  if(!estado){
+    try{
+      if(location.protocol === "file:") estado = "arquivo";
+      else if(EH_IOS && !NA_TELA_INICIO) estado = "iosSafari";
+      else if(typeof Notification==="undefined") estado = "bloqueado";
+      else if(Notification.permission==="granted") estado = "ok";
+      else if(Notification.permission==="denied") estado = "negado";
+      else estado = "pedir";
+    }catch(e){ estado = "bloqueado"; }
+  }
+  var m = {
+    arquivo:"Você abriu o arquivo direto, sem o atalho da pasta. Assim o alarme sonoro funciona normalmente, mas o aviso do sistema e a instalação como aplicativo não — para isso, feche e use o atalho que fica junto destes arquivos.",
+    pedir:"Clique em Permitir notificações para que o alarme apareça por cima de outros programas.",
+    ok:"Notificações ativas. O aviso aparece por cima de outros programas; o som toca junto, até você clicar em Parar som.",
+    negado:"Você recusou as notificações. Para reativar, clique no cadeado ao lado do endereço e libere Notificações. O alarme sonoro continua funcionando.",
+    bloqueado:"Este navegador não oferece notificação do sistema aqui. Abra o aplicativo pelo atalho instalado, não pelo arquivo direto.",
+    iosSafari:"No iPhone, instale antes de usar: toque em Compartilhar (o quadrado com a seta) → Adicionar à Tela de Início, e abra pelo ícone. Aberto aqui no Safari o cronômetro funciona, mas o aviso do sistema não, e os dados ficam separados dos do ícone."
+  };
+  if(EH_IOS && estado !== "iosSafari"){
+    m.ok = "Notificações ativas.";
+    m.pedir = "Toque em Permitir notificações para receber o aviso junto com o som.";
+    m.negado = "As notificações foram recusadas. Para reativar: Ajustes do iPhone → Notificações → Ciclos.";
+  }
+  el("btnNotif").hidden = (estado==="ok" || estado==="arquivo" || estado==="iosSafari");
+  el("avisoTxt").textContent = m[estado] + (EH_IOS && estado !== "iosSafari"
+    ? (usaRelogio()
+        ? " Os avisos tocam também pelo Relógio do iPhone, mesmo com a tela bloqueada: o cartão abaixo do botão mostra se o próximo está armado."
+        : " Com a tela bloqueada o som deste app não toca. Para os avisos tocarem assim mesmo, ligue o Alarme pelo Relógio do iPhone em Ajustes e dados.")
+    : "");
+}
+el("btnNotif").onclick = pedirNotif;
+el("relLigado").onchange = function(){ relogio.ligado = this.checked; salvarRelogio(); relChave=""; textoAviso(); pintarRelogio(); };
+el("relNome").onchange = function(){ relogio.nome = this.value.trim() || "Ciclos Alarme"; this.value = relogio.nome; salvarRelogio(); };
+el("btnRelTeste").onclick = function(){
+  relogio.nome = el("relNome").value.trim() || relogio.nome; salvarRelogio();
+  rodarAtalho(10);
+};
+el("btnColarToken").onclick = function(){
+  try{
+    navigator.clipboard.readText().then(function(x){ el("syncToken").value = (x||"").trim(); },
+      function(){ el("syncErro").textContent = "Não consegui ler a área de transferência. Toque no campo e cole por lá."; });
+  }catch(e){ el("syncErro").textContent = "Toque no campo e cole por lá."; }
+};
+el("btnConectar").onclick = function(){
+  var tk = el("syncToken").value.replace(/\s+/g, "");
+  if(!/^(ghp_|github_pat_|gho_)[A-Za-z0-9_]{20,}$/.test(tk)){
+    el("syncErro").textContent = "Esse não parece um código do GitHub: ele começa com ghp_ (ou github_pat_) e é bem comprido. Confira se colou inteiro.";
+    return;
+  }
+  sync.token = tk; sync.gistId = ""; sync.ultimo = 0; sync.erro = "";
+  salvarSync(); el("syncToken").value = "";
+  pintarSync(); sincronizar();
+};
+el("btnSyncAgora").onclick = function(){ sincronizar(); };
+el("btnCopiarToken").onclick = function(){
+  var b = this;
+  try{
+    navigator.clipboard.writeText(sync.token).then(function(){
+      b.textContent = "Copiado — cole no outro aparelho";
+      setTimeout(function(){ b.textContent = "Copiar código (para outro aparelho)"; }, 3000);
+    }, function(){ b.textContent = "Não foi possível copiar"; });
+  }catch(e){ b.textContent = "Não foi possível copiar"; }
+};
+el("btnDesconectar").onclick = function(){
+  var b = this;
+  if(!b.dataset.c){
+    b.dataset.c = "1"; b.className = "btn perigo"; b.textContent = "Confirmar: desconectar";
+    setTimeout(function(){ if(b.dataset.c){ delete b.dataset.c; b.className = "btn"; b.textContent = "Desconectar"; } }, 4000);
+    return;
+  }
+  delete b.dataset.c; b.className = "btn"; b.textContent = "Desconectar";
+  sync.token = ""; sync.gistId = ""; sync.ultimo = 0; sync.erro = "";
+  salvarSync(); pintarSync();
+};
+el("btnCopiar").onclick = function(){
+  var txt = JSON.stringify({cfg:cfg, dias:dias, usos:usos}, null, 1);
+  var b=this;
+  try{
+    navigator.clipboard.writeText(txt).then(function(){
+      b.textContent="Copiado"; setTimeout(function(){ b.textContent="Copiar backup (JSON)"; },2000);
+    }, function(){ b.textContent="Não foi possível copiar"; setTimeout(function(){ b.textContent="Copiar backup (JSON)"; },2500); });
+  }catch(e){ b.textContent="Não foi possível copiar"; }
+};
+["cfgCiclo","cfgP1","cfgP2","cfgPd","cfgMetaSem","cfgMetaFds"].forEach(function(id){
+  el(id).onchange = function(){
+    cfg.cicloMin = Math.max(5, +el("cfgCiclo").value||50);
+    cfg.p1 = Math.max(0, +el("cfgP1").value||0);
+    cfg.p2 = Math.max(0, +el("cfgP2").value||0);
+    cfg.pausaSeg = Math.max(5, +el("cfgPd").value||30);
+    cfg.metaSem = Math.max(0, +el("cfgMetaSem").value||0);
+    cfg.metaFds = Math.max(0, +el("cfgMetaFds").value||0);
+    gravarCfg();
+  };
+});
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState==="visible"){
+    audioOn();
+    /* No iPhone o relógio do áudio para enquanto o app está congelado: os
+       toques marcados chegariam atrasados. Recomeça tudo pela hora real. */
+    if(EH_IOS && t.ativo){ t.soando = null; reagendar(); salvarTimer(); }
+    tique();
+    if(t.ativo && t.desde) telaAcesa(true);           // o sistema solta a trava de tela ao sair do app
+    if(sync.token && Date.now() - sync.ultimo > 10000) sincronizar();
+  } else if(sync.espera){
+    sincronizar();                                      // saindo do app: manda já o que estava esperando
+  }
+});
+setInterval(function(){
+  if(sync.token && document.visibilityState === "visible") sincronizar();
+}, 60000);
+window.addEventListener("beforeunload", salvarTimer);
+
+/* ---------- arranque ---------- */
+carregarLocal();
+carregarRelogio();
+el("relLigado").checked = relogio.ligado; el("relNome").value = relogio.nome;
+restaurarTimer();
+var n0=new Date(); mesVista={a:n0.getFullYear(), m:n0.getMonth()}; diaVista=hoje();
+if(!t.ativo){ var p0=proximoSugerido(); if(p0) t.tipo=p0; }
+desenharTicks();
+textoAviso();
+render();
+conectarDb();
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(function(){}); }
+if(t.ativo && t.desde){ manterAcordado(true); reagendar(); }
+setInterval(tique, 250);
+setInterval(function(){ if(t.ativo) salvarTimer(); }, 5000);
+
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "Ciclos de Estudo",
+  "short_name": "Ciclos",
+  "description": "Cronômetro de ciclos de 50 min com intervalos para os olhos, metas diárias e saldo acumulado.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eceef3",
+  "theme_color": "#2f4fb8",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
